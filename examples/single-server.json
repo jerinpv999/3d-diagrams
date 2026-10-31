@@ -1,0 +1,272 @@
+{
+  "app": "ArchFlow 3D",
+  "version": 2,
+  "title": "Single-server deployment",
+  "nodes": [
+    {
+      "id": "web",
+      "type": "web",
+      "name": "Web App",
+      "x": -14,
+      "z": -3
+    },
+    {
+      "id": "mob",
+      "type": "mobile",
+      "name": "Mobile App",
+      "x": -14,
+      "z": 4
+    },
+    {
+      "id": "lb",
+      "type": "lb",
+      "name": "Cloud Load Balancer",
+      "x": -8,
+      "z": 0.5,
+      "capacity": 20000
+    },
+    {
+      "id": "gw",
+      "type": "apigw",
+      "name": "Nginx Gateway",
+      "x": -2.5,
+      "z": 0.5,
+      "capacity": 6000,
+      "desc": "TLS termination, routing and rate limiting.",
+      "group": "host1"
+    },
+    {
+      "id": "api",
+      "type": "node",
+      "name": "Node.js API",
+      "x": 2.5,
+      "z": 0.5,
+      "capacity": 1200,
+      "desc": "Express app: auth, users, orders.",
+      "group": "host1"
+    },
+    {
+      "id": "cache",
+      "type": "cache",
+      "name": "Redis",
+      "x": 2.5,
+      "z": -5,
+      "capacity": 40000,
+      "desc": "Sessions and hot profile reads.",
+      "group": "host1"
+    },
+    {
+      "id": "db",
+      "type": "sql",
+      "name": "PostgreSQL",
+      "x": 2.5,
+      "z": 6,
+      "capacity": 900,
+      "desc": "Primary database on the same host.",
+      "group": "host1"
+    },
+    {
+      "id": "queue",
+      "type": "queue",
+      "name": "Job Queue",
+      "x": 9.5,
+      "z": -2,
+      "capacity": 5000,
+      "desc": "BullMQ jobs stored in Redis.",
+      "group": "host2"
+    },
+    {
+      "id": "worker",
+      "type": "worker",
+      "name": "Email Worker",
+      "x": 9.5,
+      "z": 3.5,
+      "capacity": 60,
+      "group": "host2"
+    },
+    {
+      "id": "mail",
+      "type": "notify",
+      "name": "Email Provider",
+      "x": 15.5,
+      "z": 3.5
+    },
+    {
+      "id": "host1",
+      "type": "grp-server",
+      "name": "app-server-01",
+      "x": 0,
+      "z": 0,
+      "desc": "8 vCPU / 32 GB. Gateway, API, cache and database on one machine."
+    },
+    {
+      "id": "host2",
+      "type": "grp-vm",
+      "name": "worker-01",
+      "x": 0,
+      "z": 0,
+      "desc": "2 vCPU VM for background jobs."
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_web_lb",
+      "from": "web",
+      "to": "lb",
+      "label": "HTTPS",
+      "kind": "request"
+    },
+    {
+      "id": "e_mob_lb",
+      "from": "mob",
+      "to": "lb",
+      "label": "HTTPS",
+      "kind": "request"
+    },
+    {
+      "id": "e_lb_gw",
+      "from": "lb",
+      "to": "gw",
+      "label": "HTTP/2",
+      "kind": "multiplex"
+    },
+    {
+      "id": "e_gw_api",
+      "from": "gw",
+      "to": "api",
+      "label": "HTTP",
+      "kind": "request"
+    },
+    {
+      "id": "e_api_cache",
+      "from": "api",
+      "to": "cache",
+      "label": "RESP",
+      "kind": "request"
+    },
+    {
+      "id": "e_api_db",
+      "from": "api",
+      "to": "db",
+      "label": "SQL",
+      "kind": "request"
+    },
+    {
+      "id": "e_api_queue",
+      "from": "api",
+      "to": "queue",
+      "label": "enqueue",
+      "kind": "oneway"
+    },
+    {
+      "id": "e_queue_worker",
+      "from": "queue",
+      "to": "worker",
+      "label": "consume",
+      "kind": "stream"
+    },
+    {
+      "id": "e_worker_mail",
+      "from": "worker",
+      "to": "mail",
+      "label": "SMTP",
+      "kind": "oneway"
+    }
+  ],
+  "flows": [
+    {
+      "id": "f1",
+      "name": "Read profile",
+      "color": "#ffe66b",
+      "rps": 900,
+      "steps": [
+        {
+          "node": "web",
+          "note": "",
+          "ret": "render"
+        },
+        {
+          "node": "lb",
+          "note": "GET /me",
+          "ret": "200"
+        },
+        {
+          "node": "gw",
+          "note": "proxy_pass",
+          "ret": "200"
+        },
+        {
+          "node": "api",
+          "note": "getProfile()",
+          "ret": "user JSON"
+        },
+        {
+          "node": "cache",
+          "note": "GET user:42",
+          "ret": "HIT"
+        }
+      ]
+    },
+    {
+      "id": "f2",
+      "name": "Sign up",
+      "color": "#ff8f5a",
+      "rps": 40,
+      "steps": [
+        {
+          "node": "mob",
+          "note": "",
+          "ret": "welcome screen"
+        },
+        {
+          "node": "lb",
+          "note": "POST /signup",
+          "ret": "201"
+        },
+        {
+          "node": "gw",
+          "note": "proxy_pass",
+          "ret": "201"
+        },
+        {
+          "node": "api",
+          "note": "createUser()",
+          "ret": "201 Created"
+        },
+        {
+          "node": "db",
+          "note": "INSERT users",
+          "ret": "id=1042"
+        }
+      ]
+    },
+    {
+      "id": "f3",
+      "name": "Welcome email",
+      "color": "#ff7ab6",
+      "rps": 40,
+      "steps": [
+        {
+          "node": "api",
+          "note": "",
+          "ret": ""
+        },
+        {
+          "node": "queue",
+          "note": "add job welcome",
+          "ret": ""
+        },
+        {
+          "node": "worker",
+          "note": "process job",
+          "ret": ""
+        },
+        {
+          "node": "mail",
+          "note": "send email",
+          "ret": ""
+        }
+      ]
+    }
+  ]
+}

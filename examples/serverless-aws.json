@@ -1,0 +1,237 @@
+{
+  "app": "ArchFlow 3D",
+  "version": 2,
+  "title": "Serverless orders on AWS",
+  "nodes": [
+    {
+      "id": "region",
+      "type": "aws-vpc",
+      "name": "AWS us-east-1",
+      "x": 3,
+      "z": 0,
+      "w": 22,
+      "d": 19
+    },
+    {
+      "id": "spa",
+      "type": "web",
+      "name": "React SPA",
+      "x": -13,
+      "z": 0
+    },
+    {
+      "id": "cf",
+      "type": "aws-cloudfront",
+      "name": "CloudFront",
+      "x": -5,
+      "z": 5.5
+    },
+    {
+      "id": "s3",
+      "type": "aws-s3",
+      "name": "Static Site Bucket",
+      "x": 1,
+      "z": 7.5
+    },
+    {
+      "id": "agw",
+      "type": "aws-apigw",
+      "name": "API Gateway",
+      "x": -5,
+      "z": -2,
+      "capacity": 10000
+    },
+    {
+      "id": "cog",
+      "type": "aws-cognito",
+      "name": "Cognito",
+      "x": -5,
+      "z": -7.5
+    },
+    {
+      "id": "lam",
+      "type": "aws-lambda",
+      "name": "Orders Function",
+      "x": 1,
+      "z": -2,
+      "capacity": 1000,
+      "desc": "Reserved concurrency 1000."
+    },
+    {
+      "id": "ddb",
+      "type": "aws-dynamodb",
+      "name": "Orders Table",
+      "x": 6.5,
+      "z": -6.5,
+      "capacity": 4000
+    },
+    {
+      "id": "sqs",
+      "type": "aws-sqs",
+      "name": "Jobs Queue",
+      "x": 6.5,
+      "z": 1.5
+    },
+    {
+      "id": "wk",
+      "type": "aws-lambda",
+      "name": "Worker Function",
+      "x": 11,
+      "z": 1.5,
+      "capacity": 100
+    },
+    {
+      "id": "sns",
+      "type": "aws-sns",
+      "name": "Alerts Topic",
+      "x": 11,
+      "z": 6.5
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_spa_cf",
+      "from": "spa",
+      "to": "cf",
+      "label": "HTTPS",
+      "kind": "request"
+    },
+    {
+      "id": "e_cf_s3",
+      "from": "cf",
+      "to": "s3",
+      "label": "S3 API",
+      "kind": "request"
+    },
+    {
+      "id": "e_spa_agw",
+      "from": "spa",
+      "to": "agw",
+      "label": "HTTPS",
+      "kind": "request"
+    },
+    {
+      "id": "e_agw_cog",
+      "from": "agw",
+      "to": "cog",
+      "label": "Authorize",
+      "kind": "request"
+    },
+    {
+      "id": "e_agw_lam",
+      "from": "agw",
+      "to": "lam",
+      "label": "Invoke",
+      "kind": "request"
+    },
+    {
+      "id": "e_lam_ddb",
+      "from": "lam",
+      "to": "ddb",
+      "label": "PutItem",
+      "kind": "request"
+    },
+    {
+      "id": "e_lam_sqs",
+      "from": "lam",
+      "to": "sqs",
+      "label": "SendMessage",
+      "kind": "oneway"
+    },
+    {
+      "id": "e_sqs_wk",
+      "from": "sqs",
+      "to": "wk",
+      "label": "Trigger",
+      "kind": "stream"
+    },
+    {
+      "id": "e_wk_sns",
+      "from": "wk",
+      "to": "sns",
+      "label": "Publish",
+      "kind": "oneway"
+    }
+  ],
+  "flows": [
+    {
+      "id": "f1",
+      "name": "Submit order",
+      "color": "#ff8f5a",
+      "rps": 350,
+      "steps": [
+        {
+          "node": "spa",
+          "note": "",
+          "ret": "toast: placed"
+        },
+        {
+          "node": "agw",
+          "note": "POST /orders",
+          "ret": "201"
+        },
+        {
+          "node": "lam",
+          "note": "handler(event)",
+          "ret": "{orderId}"
+        },
+        {
+          "node": "ddb",
+          "note": "PutItem orders",
+          "ret": "OK"
+        }
+      ]
+    },
+    {
+      "id": "f2",
+      "name": "Load SPA",
+      "color": "#ffe66b",
+      "rps": 1500,
+      "steps": [
+        {
+          "node": "spa",
+          "note": "",
+          "ret": ""
+        },
+        {
+          "node": "cf",
+          "note": "GET /index.html",
+          "ret": "200 edge-cached"
+        },
+        {
+          "node": "s3",
+          "note": "GetObject",
+          "ret": "200"
+        }
+      ]
+    },
+    {
+      "id": "f3",
+      "name": "Async job",
+      "color": "#8fb4ff",
+      "rps": 80,
+      "steps": [
+        {
+          "node": "lam",
+          "note": "",
+          "ret": ""
+        },
+        {
+          "node": "sqs",
+          "note": "SendMessage",
+          "ret": ""
+        },
+        {
+          "node": "wk",
+          "note": "batch of 10",
+          "ret": ""
+        },
+        {
+          "node": "sns",
+          "note": "Publish alert",
+          "ret": ""
+        }
+      ]
+    }
+  ]
+}

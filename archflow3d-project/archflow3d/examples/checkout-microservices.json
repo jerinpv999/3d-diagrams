@@ -1,0 +1,392 @@
+{
+  "app": "ArchFlow 3D",
+  "version": 2,
+  "title": "Checkout platform",
+  "nodes": [
+    {
+      "id": "vpc",
+      "type": "vpc",
+      "name": "Production VPC",
+      "x": 3.4,
+      "z": 1.2,
+      "w": 16.5,
+      "d": 20
+    },
+    {
+      "id": "mob",
+      "type": "mobile",
+      "name": "Mobile App",
+      "x": -14,
+      "z": -3.5
+    },
+    {
+      "id": "web",
+      "type": "web",
+      "name": "Web Storefront",
+      "x": -14,
+      "z": 4
+    },
+    {
+      "id": "ws",
+      "type": "ws",
+      "name": "Order Status Hub",
+      "x": -14,
+      "z": -11,
+      "desc": "Pushes live order status to the mobile app.",
+      "capacity": 5000
+    },
+    {
+      "id": "cdn",
+      "type": "cdn",
+      "name": "CDN",
+      "x": -9.5,
+      "z": 6.5
+    },
+    {
+      "id": "apigw",
+      "type": "apigw",
+      "name": "API Gateway",
+      "x": -7.5,
+      "z": 0,
+      "capacity": 8000
+    },
+    {
+      "id": "auth",
+      "type": "auth",
+      "name": "Auth Service",
+      "x": -7.5,
+      "z": -6.5,
+      "capacity": 3000
+    },
+    {
+      "id": "orders",
+      "type": "microservice",
+      "name": "Order Service",
+      "x": -1.5,
+      "z": 0,
+      "capacity": 250,
+      "replicas": 2,
+      "desc": "Creates and tracks orders. Owns the orders table.",
+      "group": "pod1"
+    },
+    {
+      "id": "inv",
+      "type": "microservice",
+      "name": "Inventory Service",
+      "x": -1.5,
+      "z": 6,
+      "capacity": 900,
+      "replicas": 3,
+      "desc": "Stock levels and product catalogue reads."
+    },
+    {
+      "id": "pg",
+      "type": "sql",
+      "name": "Orders DB",
+      "x": -1.5,
+      "z": -6.5,
+      "capacity": 1500,
+      "desc": "PostgreSQL primary for orders.",
+      "group": "pod1"
+    },
+    {
+      "id": "redis",
+      "type": "cache",
+      "name": "Catalog Cache",
+      "x": 4,
+      "z": 9,
+      "capacity": 50000
+    },
+    {
+      "id": "saga",
+      "type": "orchestrator",
+      "name": "Checkout Saga",
+      "x": 4.5,
+      "z": -2,
+      "capacity": 600,
+      "group": "pod2"
+    },
+    {
+      "id": "pay",
+      "type": "microservice",
+      "name": "Payment Service",
+      "x": 9.5,
+      "z": -5,
+      "capacity": 150,
+      "replicas": 2,
+      "group": "pod2"
+    },
+    {
+      "id": "kafka",
+      "type": "kafka",
+      "name": "order-events",
+      "x": 4.5,
+      "z": 4,
+      "capacity": 20000
+    },
+    {
+      "id": "notif",
+      "type": "worker",
+      "name": "Notification Worker",
+      "x": 9.5,
+      "z": 4,
+      "capacity": 200
+    },
+    {
+      "id": "payprov",
+      "type": "payment",
+      "name": "Payment Provider",
+      "x": 15,
+      "z": -5
+    },
+    {
+      "id": "email",
+      "type": "notify",
+      "name": "Email / SMS",
+      "x": 15,
+      "z": 4
+    },
+    {
+      "id": "pod1",
+      "type": "grp-pod",
+      "name": "orders-pod",
+      "x": 0,
+      "z": 0,
+      "desc": "Order Service and its database deployed together."
+    },
+    {
+      "id": "pod2",
+      "type": "grp-pod",
+      "name": "payments-pod",
+      "x": 0,
+      "z": 0,
+      "desc": ""
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_mob_apigw",
+      "from": "mob",
+      "to": "apigw",
+      "label": "HTTPS",
+      "kind": "request"
+    },
+    {
+      "id": "e_web_cdn",
+      "from": "web",
+      "to": "cdn",
+      "label": "HTTPS",
+      "kind": "request"
+    },
+    {
+      "id": "e_cdn_apigw",
+      "from": "cdn",
+      "to": "apigw",
+      "label": "HTTPS",
+      "kind": "request"
+    },
+    {
+      "id": "e_apigw_auth",
+      "from": "apigw",
+      "to": "auth",
+      "label": "gRPC",
+      "kind": "multiplex"
+    },
+    {
+      "id": "e_apigw_orders",
+      "from": "apigw",
+      "to": "orders",
+      "label": "REST",
+      "kind": "request"
+    },
+    {
+      "id": "e_apigw_inv",
+      "from": "apigw",
+      "to": "inv",
+      "label": "REST",
+      "kind": "request"
+    },
+    {
+      "id": "e_orders_pg",
+      "from": "orders",
+      "to": "pg",
+      "label": "SQL",
+      "kind": "request"
+    },
+    {
+      "id": "e_inv_redis",
+      "from": "inv",
+      "to": "redis",
+      "label": "RESP",
+      "kind": "request"
+    },
+    {
+      "id": "e_orders_saga",
+      "from": "orders",
+      "to": "saga",
+      "label": "gRPC",
+      "kind": "multiplex"
+    },
+    {
+      "id": "e_saga_pay",
+      "from": "saga",
+      "to": "pay",
+      "label": "gRPC",
+      "kind": "multiplex"
+    },
+    {
+      "id": "e_pay_payprov",
+      "from": "pay",
+      "to": "payprov",
+      "label": "HTTPS",
+      "kind": "request"
+    },
+    {
+      "id": "e_orders_kafka",
+      "from": "orders",
+      "to": "kafka",
+      "label": "Events",
+      "kind": "oneway"
+    },
+    {
+      "id": "e_kafka_notif",
+      "from": "kafka",
+      "to": "notif",
+      "label": "Kafka",
+      "kind": "stream"
+    },
+    {
+      "id": "e_notif_email",
+      "from": "notif",
+      "to": "email",
+      "label": "SMTP",
+      "kind": "oneway"
+    },
+    {
+      "id": "e_mob_ws",
+      "from": "mob",
+      "to": "ws",
+      "label": "WebSocket",
+      "kind": "duplex"
+    }
+  ],
+  "flows": [
+    {
+      "id": "f1",
+      "name": "Place order",
+      "color": "#ff8f5a",
+      "rps": 120,
+      "steps": [
+        {
+          "node": "mob",
+          "note": "",
+          "ret": "order shown"
+        },
+        {
+          "node": "apigw",
+          "note": "POST /v1/orders",
+          "ret": "201 + order JSON"
+        },
+        {
+          "node": "orders",
+          "note": "createOrder()",
+          "ret": "201 Created"
+        },
+        {
+          "node": "saga",
+          "note": "begin checkout saga",
+          "ret": "order confirmed"
+        },
+        {
+          "node": "pay",
+          "note": "authorize payment",
+          "ret": "authorized"
+        },
+        {
+          "node": "payprov",
+          "note": "POST /charges",
+          "ret": "charge_id"
+        }
+      ]
+    },
+    {
+      "id": "f2",
+      "name": "Browse catalog",
+      "color": "#ffe66b",
+      "rps": 2400,
+      "steps": [
+        {
+          "node": "web",
+          "note": "",
+          "ret": "render grid"
+        },
+        {
+          "node": "cdn",
+          "note": "GET /products",
+          "ret": "200 cached"
+        },
+        {
+          "node": "apigw",
+          "note": "cache miss, forward",
+          "ret": "200 JSON"
+        },
+        {
+          "node": "inv",
+          "note": "listProducts()",
+          "ret": "products[]"
+        },
+        {
+          "node": "redis",
+          "note": "GET products:*",
+          "ret": "HIT"
+        }
+      ]
+    },
+    {
+      "id": "f3",
+      "name": "Order event fan-out",
+      "color": "#ff7ab6",
+      "rps": 120,
+      "steps": [
+        {
+          "node": "orders",
+          "note": "",
+          "ret": ""
+        },
+        {
+          "node": "kafka",
+          "note": "publish order.created",
+          "ret": ""
+        },
+        {
+          "node": "notif",
+          "note": "consume event",
+          "ret": ""
+        },
+        {
+          "node": "email",
+          "note": "send receipt",
+          "ret": ""
+        }
+      ]
+    },
+    {
+      "id": "f4",
+      "name": "Live order status",
+      "color": "#8fb4ff",
+      "rps": 300,
+      "steps": [
+        {
+          "node": "mob",
+          "note": "",
+          "ret": "status shown"
+        },
+        {
+          "node": "ws",
+          "note": "subscribe order:8812",
+          "ret": "status: shipped"
+        }
+      ]
+    }
+  ]
+}

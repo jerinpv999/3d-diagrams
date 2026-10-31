@@ -1,0 +1,200 @@
+{
+  "app": "ArchFlow 3D",
+  "version": 2,
+  "title": "IoT telemetry on Azure",
+  "nodes": [
+    {
+      "id": "vnet",
+      "type": "az-vnet",
+      "name": "Telemetry VNet",
+      "x": 3,
+      "z": -1,
+      "w": 17,
+      "d": 18
+    },
+    {
+      "id": "iot",
+      "type": "iot",
+      "name": "Field Sensors",
+      "x": -14,
+      "z": -4
+    },
+    {
+      "id": "ops",
+      "type": "mobile",
+      "name": "Ops Mobile",
+      "x": -14,
+      "z": 5
+    },
+    {
+      "id": "hub",
+      "type": "az-eventhubs",
+      "name": "Telemetry Hub",
+      "x": -3,
+      "z": -4,
+      "capacity": 50000
+    },
+    {
+      "id": "fn",
+      "type": "az-functions",
+      "name": "Ingest Function",
+      "x": 2.5,
+      "z": -4,
+      "capacity": 3000
+    },
+    {
+      "id": "cos",
+      "type": "az-cosmos",
+      "name": "Telemetry Store",
+      "x": 8,
+      "z": -7.5,
+      "capacity": 10000
+    },
+    {
+      "id": "sb",
+      "type": "az-servicebus",
+      "name": "Alert Queue",
+      "x": 8,
+      "z": -0.5
+    },
+    {
+      "id": "aks",
+      "type": "az-aks",
+      "name": "Analytics (AKS)",
+      "x": 13.5,
+      "z": -0.5
+    },
+    {
+      "id": "apim",
+      "type": "az-apim",
+      "name": "API Management",
+      "x": -8,
+      "z": 5,
+      "capacity": 4000
+    },
+    {
+      "id": "app",
+      "type": "az-appservice",
+      "name": "Ops API",
+      "x": 2.5,
+      "z": 5,
+      "capacity": 500
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_iot_hub",
+      "from": "iot",
+      "to": "hub",
+      "label": "MQTT",
+      "kind": "stream"
+    },
+    {
+      "id": "e_hub_fn",
+      "from": "hub",
+      "to": "fn",
+      "label": "Trigger",
+      "kind": "stream"
+    },
+    {
+      "id": "e_fn_cos",
+      "from": "fn",
+      "to": "cos",
+      "label": "Upsert",
+      "kind": "request"
+    },
+    {
+      "id": "e_fn_sb",
+      "from": "fn",
+      "to": "sb",
+      "label": "Enqueue",
+      "kind": "oneway"
+    },
+    {
+      "id": "e_sb_aks",
+      "from": "sb",
+      "to": "aks",
+      "label": "Consume",
+      "kind": "stream"
+    },
+    {
+      "id": "e_ops_apim",
+      "from": "ops",
+      "to": "apim",
+      "label": "HTTPS",
+      "kind": "request"
+    },
+    {
+      "id": "e_apim_app",
+      "from": "apim",
+      "to": "app",
+      "label": "HTTP/2",
+      "kind": "multiplex"
+    },
+    {
+      "id": "e_app_cos",
+      "from": "app",
+      "to": "cos",
+      "label": "Query",
+      "kind": "request"
+    }
+  ],
+  "flows": [
+    {
+      "id": "f1",
+      "name": "Telemetry ingest",
+      "color": "#ffe66b",
+      "rps": 2500,
+      "steps": [
+        {
+          "node": "iot",
+          "note": "",
+          "ret": ""
+        },
+        {
+          "node": "hub",
+          "note": "send batch",
+          "ret": ""
+        },
+        {
+          "node": "fn",
+          "note": "onEvents()",
+          "ret": "checkpoint"
+        },
+        {
+          "node": "cos",
+          "note": "upsert reading",
+          "ret": "201"
+        }
+      ]
+    },
+    {
+      "id": "f2",
+      "name": "Dashboard query",
+      "color": "#ff8f5a",
+      "rps": 60,
+      "steps": [
+        {
+          "node": "ops",
+          "note": "",
+          "ret": "chart"
+        },
+        {
+          "node": "apim",
+          "note": "GET /sites/42",
+          "ret": "200"
+        },
+        {
+          "node": "app",
+          "note": "getReadings()",
+          "ret": "rows"
+        },
+        {
+          "node": "cos",
+          "note": "SELECT last 24h",
+          "ret": "items[]"
+        }
+      ]
+    }
+  ]
+}

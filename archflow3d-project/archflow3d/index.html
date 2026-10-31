@@ -1,0 +1,1855 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>ArchFlow 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: workbench — block palette | live 3D stage | inspector + flows + hop log. Single dark "control room" world by choice. */
+:root{
+  --ink:#0d1420;        /* page ground */
+  --panel:#131c2b;      /* side panels */
+  --raise:#1a2537;      /* inputs, hover */
+  --line:#26344b;       /* hairlines */
+  --text:#dbe4f0;
+  --muted:#8395ad;
+  --req:#ffb547;        /* request packets */
+  --res:#4fd8ff;        /* response packets */
+  --evt:#c58bff;        /* one-way event packets */
+  --str:#7cf29a;        /* stream packets */
+  --danger:#ff6b6b;
+  --f-display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--ink);color:var(--text);font-family:var(--f-body);font-size:13.5px;overflow:hidden}
+*{box-sizing:border-box}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--res);outline-offset:2px}
+#root{height:100%}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line);background:var(--panel)}
+.brand{display:flex;align-items:baseline;gap:8px;min-width:0}
+.brand b{font-family:var(--f-display);font-weight:700;font-size:21px;letter-spacing:.02em}
+.brand b span{color:var(--req)}
+.title-in{background:transparent;border:1px solid transparent;border-radius:6px;padding:4px 8px;font-family:var(--f-display);font-size:17px;font-weight:500;color:var(--text);min-width:0;width:min(280px,46vw)}
+.title-in:hover,.title-in:focus{border-color:var(--line);background:var(--raise)}
+.top .spacer{flex:1}
+.grp{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--raise);border-radius:7px;padding:6px 11px;font-size:13px;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:#3a4c69;background:#202d42}
+.btn.primary{background:var(--req);border-color:var(--req);color:#1b1306}
+.btn.primary:hover{background:#ffc46b}
+.btn.ghost{background:transparent}
+.btn.on{border-color:var(--res);color:var(--res);background:rgba(79,216,255,.08)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.sm{padding:4px 8px;font-size:12px}
+.btn.danger{color:var(--danger)}
+select.btn{padding-right:8px}
+
+/* main */
+.main{display:grid;grid-template-columns:262px minmax(0,1fr) 316px;min-height:0}
+.pane{background:var(--panel);overflow:auto;min-height:0}
+.pane.left{border-right:1px solid var(--line)}
+.pane.right{border-left:1px solid var(--line)}
+.sec{padding:14px 14px 16px;border-bottom:1px solid var(--line)}
+.sec h3{margin:0 0 10px;font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.search{width:100%;background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:7px 10px}
+details.cat{border-bottom:1px solid var(--line)}
+details.cat summary{list-style:none;cursor:pointer;padding:10px 14px;display:flex;align-items:center;gap:8px;font-family:var(--f-display);font-weight:600;font-size:14px;letter-spacing:.03em}
+details.cat summary::-webkit-details-marker{display:none}
+details.cat summary .n{margin-left:auto;font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+details.cat summary::before{content:"";width:6px;height:6px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(-45deg);transition:transform .15s}
+details.cat[open] summary::before{transform:rotate(45deg)}
+.items{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 12px 12px}
+.item{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:7px 8px;min-width:0}
+.item:hover{border-color:var(--c);background:#1f2b3f}
+.item .row{display:flex;align-items:center;gap:6px;width:100%;min-width:0}
+.item .sw{width:9px;height:9px;border-radius:2px;background:var(--c);flex:none}
+.item .nm{font-size:12.5px;font-weight:500;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .pv{font-family:var(--f-mono);font-size:10px;color:var(--muted);letter-spacing:.04em}
+
+/* stage */
+.stage{position:relative;min-width:0;min-height:0;background:#0e1522}
+.canvas-host{position:absolute;inset:0}
+.canvas-host canvas{display:block;width:100%;height:100%;touch-action:none}
+.toolbar{position:absolute;left:12px;top:12px;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 24px)}
+.seg{display:flex;background:rgba(19,28,43,.92);border:1px solid var(--line);border-radius:8px;padding:3px;gap:2px;backdrop-filter:blur(6px)}
+.seg button{border:0;background:transparent;border-radius:5px;padding:5px 10px;font-size:12.5px;font-weight:500;color:var(--muted)}
+.seg button:hover{color:var(--text)}
+.seg button.on{background:var(--raise);color:var(--text);box-shadow:inset 0 0 0 1px #3a4c69}
+.hint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(19,28,43,.94);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:12.5px;color:var(--text);max-width:calc(100% - 24px);text-align:center;pointer-events:none}
+.hint em{font-style:normal;color:var(--req)}
+.legend{position:absolute;right:12px;top:12px;display:flex;gap:12px;background:rgba(19,28,43,.9);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:0}
+.empty{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;text-align:center;color:var(--muted)}
+.empty b{display:block;font-family:var(--f-display);font-size:22px;color:var(--text);font-weight:600;margin-bottom:4px}
+.rec{position:absolute;right:12px;bottom:14px;background:rgba(19,28,43,.95);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-family:var(--f-mono);font-size:12px;display:flex;gap:8px;align-items:center}
+.rec .dot{width:9px;height:9px;border-radius:50%;background:var(--danger);animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.25}}
+.bar{height:4px;width:120px;background:var(--line);border-radius:3px;overflow:hidden}
+.bar>div{height:100%;background:var(--req)}
+
+/* right pane */
+.field{display:grid;gap:4px;margin-bottom:10px}
+.field label{font-size:11.5px;color:var(--muted);font-family:var(--f-mono);letter-spacing:.03em}
+.field input[type=text],.field select{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:7px 9px;width:100%}
+.field input[type=range]{width:100%;accent-color:var(--req)}
+.kv{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted);margin-bottom:10px}
+.kv .sw{width:10px;height:10px;border-radius:3px}
+.chip{font-family:var(--f-mono);font-size:10.5px;border:1px solid var(--line);border-radius:999px;padding:1px 7px;color:var(--muted)}
+.muted{color:var(--muted);font-size:12.5px;line-height:1.5;margin:0}
+.flow{border:1px solid var(--line);border-radius:9px;padding:8px 9px;margin-bottom:8px;background:var(--raise)}
+.flow.playing{border-color:var(--fc)}
+.flow .hd{display:flex;align-items:center;gap:8px}
+.flow .hd .sw{width:10px;height:10px;border-radius:50%;background:var(--fc);flex:none}
+.flow .hd input{flex:1;min-width:0;background:transparent;border:1px solid transparent;border-radius:5px;padding:3px 5px;font-weight:600}
+.flow .hd input:hover,.flow .hd input:focus{border-color:var(--line);background:var(--panel)}
+.flow .path{font-family:var(--f-mono);font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5;overflow-wrap:anywhere}
+.ctl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:12.5px}
+.ctl label{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.ctl input[type=checkbox]{accent-color:var(--req)}
+.recsteps{display:grid;gap:6px;margin:8px 0}
+.recstep{display:grid;grid-template-columns:22px 1fr;gap:6px;align-items:center}
+.recstep .no{font-family:var(--f-mono);font-size:11px;color:var(--req);text-align:right}
+.recstep input{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 7px;font-size:12px;width:100%}
+.recstep .nn{font-size:12px;font-weight:600}
+.log{display:grid;gap:2px}
+.hop{display:grid;grid-template-columns:20px 14px 1fr;gap:6px;align-items:start;padding:5px 6px;border-radius:6px;font-size:12px}
+.hop .no{font-family:var(--f-mono);font-size:10.5px;color:var(--muted);text-align:right;padding-top:1px;font-variant-numeric:tabular-nums}
+.hop .ar{font-family:var(--f-mono);font-weight:600}
+.hop.req .ar{color:var(--req)}
+.hop.res .ar{color:var(--res)}
+.hop.evt .ar{color:var(--evt)}
+.hop.stream .ar{color:var(--str)}
+.hop .tx{min-width:0;overflow-wrap:anywhere}
+.hop .tx small{display:block;font-family:var(--f-mono);font-size:10.5px;color:var(--muted)}
+.hop.on{background:#1f2c41;box-shadow:inset 0 0 0 1px #34465f}
+.hop.done{opacity:.55}
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#22304a;border:1px solid #3a4c69;border-radius:8px;padding:9px 14px;font-size:13px;z-index:20;max-width:calc(100% - 32px)}
+.file-in{display:none}
+
+/* inspector additions */
+.field textarea{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:7px 9px;width:100%;resize:vertical;font:inherit;line-height:1.45;color:var(--text)}
+.numrow{display:flex;align-items:center;gap:6px}
+.numrow input{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:7px 9px;width:100%;min-width:0;font-variant-numeric:tabular-nums}
+.numrow span{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.row2f{display:grid;grid-template-columns:1.4fr 1fr;gap:8px}
+.util-wrap{display:grid;gap:6px;margin-top:2px}
+.util-top{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;font-variant-numeric:tabular-nums}
+.util{height:7px;background:var(--line);border-radius:4px;overflow:hidden}
+.util>div{height:100%;border-radius:4px}
+.warn{margin:0;color:var(--danger);font-size:12px}
+.members{display:flex;flex-wrap:wrap;gap:5px}
+.chip.link{background:transparent;cursor:pointer;color:var(--text)}
+.chip.link:hover{border-color:var(--res);color:var(--res)}
+.kind-desc{margin-top:4px;font-size:12px}
+.note{margin-top:10px;border:1px dashed #3a4c69;border-radius:8px;padding:8px 10px;font-size:12px;color:var(--muted);line-height:1.5}
+.note b{display:block;color:var(--text);font-weight:600;margin-bottom:2px}
+.traffic{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:10px}
+.traffic>div{background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:7px 8px;min-width:0}
+.traffic b{display:block;font-family:var(--f-display);font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+.traffic span{display:block;font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.flow .rps{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--muted)}
+.flow .rps input{width:90px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px 6px;font-variant-numeric:tabular-nums}
+.flow .rps label{font-family:var(--f-mono);font-size:11px}
+.seg select{background:transparent;border:0;padding:4px 6px;font-size:12.5px;color:var(--text)}
+.tip{position:absolute;z-index:6;max-width:280px;background:rgba(13,20,32,.97);border:1px solid #3a4c69;border-radius:9px;padding:9px 11px;pointer-events:none;box-shadow:0 10px 28px rgba(0,0,0,.4);display:grid;gap:3px}
+.tip b{font-family:var(--f-display);font-size:16px;font-weight:600}
+.tip .t{font-family:var(--f-mono);font-size:10.5px;color:var(--muted);letter-spacing:.03em}
+.tip p{margin:2px 0 0;font-size:12.5px;line-height:1.45;color:#c3cfdf}
+.tip .s{font-family:var(--f-mono);font-size:11px;color:#9fb0c8;font-variant-numeric:tabular-nums}
+
+/* export menu */
+.menu-wrap{position:relative}
+.pop{position:absolute;right:0;top:calc(100% + 8px);width:330px;max-width:calc(100vw - 32px);background:var(--panel);border:1px solid #33435d;border-radius:12px;padding:6px 0;z-index:30;box-shadow:0 18px 40px rgba(0,0,0,.45)}
+.pop .blk{padding:12px 14px;border-bottom:1px solid var(--line);display:grid;gap:8px}
+.pop .blk:last-child{border-bottom:0}
+.pop .blk h4{margin:0;font-family:var(--f-display);font-size:15px;font-weight:600;letter-spacing:.02em;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.pop .blk h4 small{font-family:var(--f-mono);font-size:10.5px;color:var(--muted);font-weight:400}
+.pop .row2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pop select{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:6px 8px;width:100%;font-size:12.5px}
+.pop .meta{font-family:var(--f-mono);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pop .btn{justify-content:center}
+
+/* tour */
+.tour-catch{position:fixed;inset:0;z-index:40}
+.tour-spot{position:fixed;z-index:41;border-radius:12px;border:2px solid var(--req);box-shadow:0 0 0 9999px rgba(4,8,15,.68);transition:all .28s ease;pointer-events:none}
+.tour-dim{position:fixed;inset:0;z-index:41;background:rgba(4,8,15,.68);pointer-events:none}
+.tour-card{position:fixed;z-index:42;width:320px;max-width:calc(100vw - 32px);background:var(--panel);border:1px solid #3a4c69;border-radius:12px;padding:16px 16px 14px;box-shadow:0 20px 50px rgba(0,0,0,.5);transition:top .28s ease,left .28s ease}
+.tour-card .step{font-family:var(--f-mono);font-size:11px;color:var(--req);letter-spacing:.06em}
+.tour-card h4{margin:4px 0 6px;font-family:var(--f-display);font-size:21px;font-weight:600;text-wrap:balance}
+.tour-card p{margin:0 0 14px;color:#c3cfdf;line-height:1.55;font-size:13.5px}
+.tour-card .nav{display:flex;align-items:center;gap:6px}
+.tour-card .dots{display:flex;gap:4px;margin-right:auto}
+.tour-card .dots i{width:6px;height:6px;border-radius:50%;background:var(--line)}
+.tour-card .dots i.on{background:var(--req)}
+
+/* help modal */
+.modal-bg{position:fixed;inset:0;z-index:45;background:rgba(4,8,15,.66);display:grid;place-items:center;padding:16px}
+.modal{width:min(640px,100%);max-height:calc(100vh - 32px);overflow:auto;background:var(--panel);border:1px solid #3a4c69;border-radius:14px;padding:20px 22px}
+.modal h2{margin:0 0 4px;font-family:var(--f-display);font-size:26px;font-weight:700}
+.modal h5{margin:18px 0 8px;font-family:var(--f-display);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.modal p,.modal li{color:#c3cfdf;line-height:1.55;font-size:13.5px}
+.modal ul{margin:0;padding-left:18px}
+.dotc{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px}
+kbd{font-family:var(--f-mono);font-size:11.5px;background:var(--raise);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px;white-space:nowrap}
+
+@media (max-width:980px){
+  body{overflow:auto}
+  .app{height:auto;min-height:100%}
+  .main{display:flex;flex-direction:column}
+  .stage{order:1;height:64vh;min-height:360px}
+  .pane.right{order:2;border-left:0;border-top:1px solid var(--line)}
+  .pane.left{order:3;border-right:0;border-top:1px solid var(--line)}
+  .pane{overflow:visible}
+  .legend{display:none}
+}
+@media (prefers-reduced-motion:reduce){.rec .dot{animation:none}}
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+const T = THREE;
+const html = htm.bind(React.createElement);
+const {useState, useEffect, useRef, useMemo, useCallback} = React;
+
+/* ---------------- catalog ---------------- */
+const CAT = {
+  client:{color:'#5aa9ff'}, network:{color:'#b48cff'}, compute:{color:'#ff9f5a'},
+  service:{color:'#4fd1a5'}, data:{color:'#ffcc4d'}, messaging:{color:'#ff6b9a'},
+  ops:{color:'#a3b3ca'}, external:{color:'#7ce0e8'}
+};
+const C = (type,label,section,cat,shape,provider)=>({type,label,section,cat,shape,provider});
+const CATALOG = [
+  C('web','Web App','Clients','client','monitor'),
+  C('mobile','Mobile App','Clients','client','phone'),
+  C('desktop','Desktop App','Clients','client','monitor'),
+  C('iot','IoT Device','Clients','client','iot'),
+  C('user','User','Clients','client','actor'),
+  C('partner','Partner System','Clients','external','ext'),
+
+  C('dns','DNS','Network & Edge','network','dns'),
+  C('cdn','CDN','Network & Edge','network','globe'),
+  C('waf','WAF / Firewall','Network & Edge','network','wall'),
+  C('lb','Load Balancer','Network & Edge','network','lb'),
+  C('apigw','API Gateway','Network & Edge','network','gateway'),
+  C('mesh','Service Mesh','Network & Edge','network','ring'),
+  C('vpn','VPN Gateway','Network & Edge','network','lb'),
+  C('vpc','VPC / Network','Network & Edge','network','zone'),
+  C('subnet','Subnet','Network & Edge','network','zone'),
+
+  C('server','Server','Compute','compute','server'),
+  C('vm','Virtual Machine','Compute','compute','vm'),
+  C('node','Node.js Runtime','Compute','compute','server'),
+  C('container','Container','Compute','compute','container'),
+  C('k8s','Kubernetes Cluster','Compute','compute','cluster'),
+  C('fn','Serverless Function','Compute','compute','octa'),
+
+  C('microservice','Microservice','Services & APIs','service','hex'),
+  C('rest','REST API','Services & APIs','service','hex'),
+  C('graphql','GraphQL API','Services & APIs','service','hex'),
+  C('grpc','gRPC Service','Services & APIs','service','hex'),
+  C('bff','BFF','Services & APIs','service','hex'),
+  C('auth','Auth Service','Services & APIs','service','hex'),
+  C('orchestrator','Orchestrator / Saga','Services & APIs','service','orch'),
+  C('worker','Background Worker','Services & APIs','service','container'),
+  C('scheduler','Scheduler / Cron','Services & APIs','service','orch'),
+
+  C('sql','SQL Database','Data','data','db'),
+  C('nosql','NoSQL Database','Data','data','db'),
+  C('cache','Redis Cache','Data','data','cache'),
+  C('object','Object Storage','Data','data','bucket'),
+  C('search','Search Index','Data','data','search'),
+  C('warehouse','Data Warehouse','Data','data','warehouse'),
+  C('vector','Vector DB','Data','data','db'),
+
+  C('queue','Message Queue','Messaging','messaging','queue'),
+  C('kafka','Event Stream','Messaging','messaging','stream'),
+  C('pubsub','Pub/Sub Topic','Messaging','messaging','broadcast'),
+  C('eventbus','Event Bus','Messaging','messaging','stream'),
+  C('ws','WebSocket Hub','Messaging','messaging','broadcast'),
+
+  C('aws-ec2','EC2','AWS','compute','server','AWS'),
+  C('aws-lambda','Lambda','AWS','compute','octa','AWS'),
+  C('aws-ecs','ECS / Fargate','AWS','compute','container','AWS'),
+  C('aws-eks','EKS','AWS','compute','cluster','AWS'),
+  C('aws-apigw','API Gateway','AWS','network','gateway','AWS'),
+  C('aws-cloudfront','CloudFront','AWS','network','globe','AWS'),
+  C('aws-alb','ALB','AWS','network','lb','AWS'),
+  C('aws-route53','Route 53','AWS','network','dns','AWS'),
+  C('aws-s3','S3','AWS','data','bucket','AWS'),
+  C('aws-rds','RDS','AWS','data','db','AWS'),
+  C('aws-dynamodb','DynamoDB','AWS','data','db','AWS'),
+  C('aws-elasticache','ElastiCache','AWS','data','cache','AWS'),
+  C('aws-sqs','SQS','AWS','messaging','queue','AWS'),
+  C('aws-sns','SNS','AWS','messaging','broadcast','AWS'),
+  C('aws-kinesis','Kinesis','AWS','messaging','stream','AWS'),
+  C('aws-eventbridge','EventBridge','AWS','messaging','stream','AWS'),
+  C('aws-cognito','Cognito','AWS','service','hex','AWS'),
+  C('aws-stepfn','Step Functions','AWS','service','orch','AWS'),
+  C('aws-vpc','VPC','AWS','network','zone','AWS'),
+
+  C('gcp-gce','Compute Engine','Google Cloud','compute','server','GCP'),
+  C('gcp-run','Cloud Run','Google Cloud','compute','container','GCP'),
+  C('gcp-fn','Cloud Functions','Google Cloud','compute','octa','GCP'),
+  C('gcp-gke','GKE','Google Cloud','compute','cluster','GCP'),
+  C('gcp-apigw','API Gateway','Google Cloud','network','gateway','GCP'),
+  C('gcp-lb','Cloud Load Balancing','Google Cloud','network','lb','GCP'),
+  C('gcp-cdn','Cloud CDN','Google Cloud','network','globe','GCP'),
+  C('gcp-gcs','Cloud Storage','Google Cloud','data','bucket','GCP'),
+  C('gcp-sql','Cloud SQL','Google Cloud','data','db','GCP'),
+  C('gcp-firestore','Firestore','Google Cloud','data','db','GCP'),
+  C('gcp-spanner','Spanner','Google Cloud','data','warehouse','GCP'),
+  C('gcp-memorystore','Memorystore','Google Cloud','data','cache','GCP'),
+  C('gcp-bigquery','BigQuery','Google Cloud','data','warehouse','GCP'),
+  C('gcp-pubsub','Pub/Sub','Google Cloud','messaging','broadcast','GCP'),
+  C('gcp-workflows','Workflows','Google Cloud','service','orch','GCP'),
+  C('gcp-vpc','VPC Network','Google Cloud','network','zone','GCP'),
+
+  C('az-vm','Virtual Machines','Azure','compute','server','AZURE'),
+  C('az-appservice','App Service','Azure','compute','server','AZURE'),
+  C('az-functions','Functions','Azure','compute','octa','AZURE'),
+  C('az-aks','AKS','Azure','compute','cluster','AZURE'),
+  C('az-apim','API Management','Azure','network','gateway','AZURE'),
+  C('az-frontdoor','Front Door','Azure','network','globe','AZURE'),
+  C('az-lb','Load Balancer','Azure','network','lb','AZURE'),
+  C('az-blob','Blob Storage','Azure','data','bucket','AZURE'),
+  C('az-sqldb','SQL Database','Azure','data','db','AZURE'),
+  C('az-cosmos','Cosmos DB','Azure','data','db','AZURE'),
+  C('az-redis','Cache for Redis','Azure','data','cache','AZURE'),
+  C('az-servicebus','Service Bus','Azure','messaging','queue','AZURE'),
+  C('az-eventhubs','Event Hubs','Azure','messaging','stream','AZURE'),
+  C('az-logicapps','Logic Apps','Azure','service','orch','AZURE'),
+  C('az-entra','Entra ID','Azure','service','hex','AZURE'),
+  C('az-vnet','Virtual Network','Azure','network','zone','AZURE'),
+
+  C('monitor','Monitoring','Software & Ops','ops','ops'),
+  C('logs','Log Aggregation','Software & Ops','ops','queue'),
+  C('tracing','Distributed Tracing','Software & Ops','ops','ops'),
+  C('cicd','CI/CD Pipeline','Software & Ops','ops','stream'),
+  C('vault','Secrets Vault','Software & Ops','ops','vm'),
+  C('registry','Container Registry','Software & Ops','ops','container'),
+  C('notify','Email / SMS','Software & Ops','external','ext'),
+  C('payment','Payment Provider','Software & Ops','external','ext'),
+  C('thirdparty','Third-party API','Software & Ops','external','ext'),
+  C('llm','LLM / AI Model','Software & Ops','external','octa'),
+];
+/* groups are containers (a server, VM, pod, zone…) whose box auto-fits the blocks inside */
+const GROUP_KINDS = [
+  {type:'grp-server',label:'Server / Host',color:'#ff9f5a'},
+  {type:'grp-vm',label:'Virtual Machine',color:'#ffb98a'},
+  {type:'grp-docker',label:'Docker Host',color:'#5aa9ff'},
+  {type:'grp-pod',label:'Kubernetes Pod',color:'#4fd1a5'},
+  {type:'grp-cluster',label:'Cluster',color:'#b48cff'},
+  {type:'grp-az',label:'Availability Zone',color:'#ffcc4d'},
+  {type:'grp-region',label:'Region',color:'#7ce0e8'},
+];
+CAT.group={color:'#ff9f5a'};
+GROUP_KINDS.forEach(g=>CATALOG.push({type:g.type,label:g.label,section:'Groups',cat:'group',shape:'group',color:g.color}));
+const BY_TYPE = Object.fromEntries(CATALOG.map(c=>[c.type,c]));
+const SECTIONS = [...new Set(CATALOG.map(c=>c.section))].filter(s=>s!=='Groups');
+const isGroupType = t => (BY_TYPE[t]||{}).shape==='group';
+const isZoneType = t => (BY_TYPE[t]||{}).shape==='zone';
+
+/* what each block is, shown in the tooltip, inspector and detail labels (editable per block) */
+const DESC = {
+  web:'Browser front end that calls your APIs.', mobile:'iOS or Android app talking to the backend over HTTPS.', desktop:'Installed desktop client.',
+  iot:'Sensor or device sending telemetry.', user:'A person using the system.', partner:'External company system that integrates with you.',
+  dns:'Resolves domain names to the right endpoint.', cdn:'Caches static and API responses at edge locations near users.',
+  waf:'Filters malicious traffic before it reaches your apps.', lb:'Spreads incoming traffic across healthy instances.',
+  apigw:'Single entry point: routing, auth checks, rate limits.', mesh:'Sidecar network layer for service-to-service traffic, mTLS and retries.',
+  vpn:'Encrypted tunnel between networks.', vpc:'Private network boundary for your resources.', subnet:'IP range inside a VPC, public or private.',
+  server:'Physical or virtual machine running your software.', vm:'Virtual machine with its own OS.', node:'Node.js process serving requests.',
+  container:'Packaged app running in an isolated container.', k8s:'Kubernetes cluster scheduling containers across nodes.',
+  fn:'Code that runs on demand and scales to zero.',
+  microservice:'Independently deployable service that owns one business capability.', rest:'HTTP/JSON API with resource-style endpoints.',
+  graphql:'Single endpoint where clients ask for exactly the fields they need.', grpc:'Binary RPC service over HTTP/2.',
+  bff:'Backend tailored to one front end, aggregating calls.', auth:'Issues and validates tokens; handles login and permissions.',
+  orchestrator:'Coordinates multi-step workflows and compensations (saga).', worker:'Processes jobs from a queue in the background.',
+  scheduler:'Triggers jobs on a timetable.',
+  sql:'Relational database with transactions and joins.', nosql:'Document or key-value store for flexible, high-scale data.',
+  cache:'In-memory store for hot data and sessions.', object:'Stores files and blobs cheaply at any scale.',
+  search:'Full-text search and filtering index.', warehouse:'Columnar store for analytics and reporting.',
+  vector:'Stores embeddings for similarity search.',
+  queue:'Buffers messages so producers and consumers work at their own pace.', kafka:'Durable, ordered event log that many consumers can replay.',
+  pubsub:'Broadcasts each message to every subscriber.', eventbus:'Routes events to targets by rules.',
+  ws:'Keeps persistent connections open to push updates to clients.',
+  monitor:'Collects metrics and raises alerts.', logs:'Centralises logs for search and retention.', tracing:'Follows a request across services.',
+  cicd:'Builds, tests and deploys your code.', vault:'Stores and rotates secrets and keys.', registry:'Stores container images.',
+  notify:'Sends email, SMS or push notifications.', payment:'Third-party card and payment processing.',
+  thirdparty:'External API your system depends on.', llm:'Hosted AI model called for generation or classification.',
+  'aws-ec2':'AWS virtual servers.', 'aws-lambda':'AWS serverless functions, billed per request.', 'aws-ecs':'AWS managed containers.',
+  'aws-eks':'AWS managed Kubernetes.', 'aws-apigw':'AWS managed API front door.', 'aws-cloudfront':'AWS global CDN.',
+  'aws-alb':'AWS layer-7 load balancer.', 'aws-route53':'AWS DNS and health-based routing.', 'aws-s3':'AWS object storage.',
+  'aws-rds':'AWS managed relational database.', 'aws-dynamodb':'AWS serverless key-value / document database.',
+  'aws-elasticache':'AWS managed Redis / Memcached.', 'aws-sqs':'AWS managed message queue.', 'aws-sns':'AWS pub/sub notifications.',
+  'aws-kinesis':'AWS real-time data streams.', 'aws-eventbridge':'AWS serverless event bus.', 'aws-cognito':'AWS user sign-up, sign-in and tokens.',
+  'aws-stepfn':'AWS serverless workflow orchestration.', 'aws-vpc':'AWS private network.',
+  'gcp-gce':'Google Cloud virtual machines.', 'gcp-run':'Google Cloud serverless containers.', 'gcp-fn':'Google Cloud serverless functions.',
+  'gcp-gke':'Google Cloud managed Kubernetes.', 'gcp-apigw':'Google Cloud managed API gateway.', 'gcp-lb':'Google Cloud global load balancing.',
+  'gcp-cdn':'Google Cloud CDN.', 'gcp-gcs':'Google Cloud object storage.', 'gcp-sql':'Google Cloud managed MySQL / PostgreSQL.',
+  'gcp-firestore':'Google Cloud serverless document database.', 'gcp-spanner':'Google Cloud globally consistent SQL database.',
+  'gcp-memorystore':'Google Cloud managed Redis.', 'gcp-bigquery':'Google Cloud serverless data warehouse.', 'gcp-pubsub':'Google Cloud messaging.',
+  'gcp-workflows':'Google Cloud workflow orchestration.', 'gcp-vpc':'Google Cloud private network.',
+  'az-vm':'Azure virtual machines.', 'az-appservice':'Azure managed web app hosting.', 'az-functions':'Azure serverless functions.',
+  'az-aks':'Azure managed Kubernetes.', 'az-apim':'Azure API gateway and developer portal.', 'az-frontdoor':'Azure global entry point and CDN.',
+  'az-lb':'Azure layer-4 load balancer.', 'az-blob':'Azure object storage.', 'az-sqldb':'Azure managed SQL Server database.',
+  'az-cosmos':'Azure globally distributed multi-model database.', 'az-redis':'Azure managed Redis.', 'az-servicebus':'Azure enterprise message broker.',
+  'az-eventhubs':'Azure high-throughput event ingestion.', 'az-logicapps':'Azure low-code workflows.', 'az-entra':'Azure identity and access.',
+  'az-vnet':'Azure private network.',
+  'grp-server':'One machine hosting the blocks inside it.', 'grp-vm':'One virtual machine hosting the blocks inside it.',
+  'grp-docker':'Containers running on the same Docker host.', 'grp-pod':'Containers scheduled together, sharing network and storage.',
+  'grp-cluster':'A set of machines managed as one.', 'grp-az':'An isolated data centre within a region.', 'grp-region':'A cloud region with one or more zones.',
+};
+const descOf = n => (n.desc && n.desc.trim()) || DESC[n.type] || '';
+
+/* connector kinds: geometry and packet behaviour differ per kind */
+const CONNECTORS = {
+  request:   {label:'Request / response', short:'',           desc:'Synchronous call. The caller waits for the reply on the same link (HTTP, REST, SQL).', proto:'HTTPS'},
+  oneway:    {label:'One-way (fire and forget)', short:'one-way', desc:'Sender moves on immediately. No reply on this link (events, webhooks, enqueue).', proto:'Events'},
+  twoway:    {label:'Two-way (bidirectional)', short:'two-way', desc:'Either side can start a request and get a reply.', proto:'TCP'},
+  halfduplex:{label:'Half duplex', short:'half-duplex',       desc:'Both directions, but only one side talks at a time.', proto:'TCP'},
+  duplex:    {label:'Full duplex', short:'duplex',            desc:'Both sides send at the same time over one open connection (WebSocket, raw TCP).', proto:'WebSocket'},
+  multiplex: {label:'Multiplexed', short:'multiplex',         desc:'Many concurrent requests share one connection (HTTP/2, gRPC, QUIC).', proto:'gRPC'},
+  stream:    {label:'Streaming', short:'stream',              desc:'A continuous flow of messages in one direction (Kafka, gRPC stream, SSE).', proto:'Kafka'},
+};
+const CONNECTOR_KEYS = Object.keys(CONNECTORS);
+const kindOf = e => (e && CONNECTORS[e.kind]) ? e.kind : 'request';
+
+const PROTOCOLS = ['HTTPS','HTTP/2','REST','gRPC','GraphQL','WebSocket','SSE','SQL','RESP','AMQP','Kafka','MQTT','Events','SMTP','TCP','UDP','QUIC','S3 API','Invoke','Trigger'];
+/* packet colours carry meaning and never change per flow */
+const REQ_COLOR='#ffb547', RES_COLOR='#4fd8ff', EVT_COLOR='#c58bff', STR_COLOR='#7cf29a';
+const DIR_COLOR = {req:REQ_COLOR, res:RES_COLOR, evt:EVT_COLOR, stream:STR_COLOR};
+/* flow colours only tint the flow's path, so they avoid the packet colours */
+const FLOW_COLORS = ['#ff8f5a','#ff7ab6','#ffe66b','#8fb4ff','#f0a6ff','#a8ffd9'];
+const BG = '#0e1522';
+
+const uid = p => p + Math.random().toString(36).slice(2,8);
+const meta = t => BY_TYPE[t] || CATALOG[0];
+const colorOf = t => { const m=meta(t); return m.color || CAT[m.cat].color; };
+
+/* ---------------- traffic maths ---------------- */
+function edgeBetween(edges,a,b){ return edges.find(e=>e.from===a&&e.to===b) || edges.find(e=>e.from===b&&e.to===a) || null; }
+function computeLoads(d){
+  const node={}, edge={};
+  for(const f of d.flows||[]){ const r=Math.max(0,+f.rps||0); if(!r) continue;
+    const seen=new Set(); for(const st of f.steps){ if(!seen.has(st.node)){ seen.add(st.node); node[st.node]=(node[st.node]||0)+r; } }
+    for(let i=0;i<f.steps.length-1;i++){ const e=edgeBetween(d.edges,f.steps[i].node,f.steps[i+1].node); if(e) edge[e.id]=(edge[e.id]||0)+r; } }
+  for(const g of d.nodes){ if(isGroupType(g.type)) node[g.id]=d.nodes.filter(n=>n.group===g.id).reduce((s,n)=>s+(node[n.id]||0),0); }
+  return {node,edge};
+}
+const capOf = n => n && n.capacity>0 ? n.capacity*Math.max(1,n.replicas||1) : 0;
+const utilOf = (n,load) => { const c=capOf(n); return c ? load/c : null; };
+const utilColor = u => u==null ? null : u>=.9 ? '#ff6b6b' : u>=.7 ? '#ffcc4d' : '#4fd1a5';
+const fmtRps = n => { n=+n||0; const f=(v,s)=>(v>=10?Math.round(v):Math.round(v*10)/10)+s; return n>=1e6?f(n/1e6,'M'):n>=1e3?f(n/1e3,'k'):String(Math.round(n)); };
+
+/* ---------------- templates ---------------- */
+function N(id,type,name,x,z,extra){ return Object.assign({id,type,name,x,z},extra||{}); }
+function E(from,to,label,kind){ return {id:'e_'+from+'_'+to, from, to, label, kind:kind||'request'}; }
+function S(node,note,ret){ return {node, note:note||'', ret:ret||''}; }
+function G(id,type,name,members,nodes,desc){ members.forEach(m=>{ const n=nodes.find(x=>x.id===m); if(n) n.group=id; }); return {id,type,name,x:0,z:0,desc:desc||''}; }
+const TEMPLATES = {
+  ecommerce: ()=>{ const nodes=[
+      N('vpc','vpc','Production VPC',3.4,1.2,{w:16.5,d:20}),
+      N('mob','mobile','Mobile App',-14,-3.5), N('web','web','Web Storefront',-14,4), N('ws','ws','Order Status Hub',-14,-11,{desc:'Pushes live order status to the mobile app.',capacity:5000}),
+      N('cdn','cdn','CDN',-9.5,6.5), N('apigw','apigw','API Gateway',-7.5,0,{capacity:8000}),
+      N('auth','auth','Auth Service',-7.5,-6.5,{capacity:3000}),
+      N('orders','microservice','Order Service',-1.5,0,{capacity:250,replicas:2,desc:'Creates and tracks orders. Owns the orders table.'}),
+      N('inv','microservice','Inventory Service',-1.5,6,{capacity:900,replicas:3,desc:'Stock levels and product catalogue reads.'}),
+      N('pg','sql','Orders DB',-1.5,-6.5,{capacity:1500,desc:'PostgreSQL primary for orders.'}), N('redis','cache','Catalog Cache',4,9,{capacity:50000}),
+      N('saga','orchestrator','Checkout Saga',4.5,-2,{capacity:600}), N('pay','microservice','Payment Service',9.5,-5,{capacity:150,replicas:2}),
+      N('kafka','kafka','order-events',4.5,4,{capacity:20000}), N('notif','worker','Notification Worker',9.5,4,{capacity:200}),
+      N('payprov','payment','Payment Provider',15,-5), N('email','notify','Email / SMS',15,4),
+    ];
+    const groups=[G('pod1','grp-pod','orders-pod',['orders','pg'],nodes,'Order Service and its database deployed together.'),
+                  G('pod2','grp-pod','payments-pod',['saga','pay'],nodes)];
+    return { title:'Checkout platform', nodes:[...nodes,...groups],
+    edges:[
+      E('mob','apigw','HTTPS'),E('web','cdn','HTTPS'),E('cdn','apigw','HTTPS'),E('apigw','auth','gRPC','multiplex'),
+      E('apigw','orders','REST'),E('apigw','inv','REST'),E('orders','pg','SQL'),E('inv','redis','RESP'),
+      E('orders','saga','gRPC','multiplex'),E('saga','pay','gRPC','multiplex'),E('pay','payprov','HTTPS'),E('orders','kafka','Events','oneway'),
+      E('kafka','notif','Kafka','stream'),E('notif','email','SMTP','oneway'),E('mob','ws','WebSocket','duplex'),
+    ],
+    flows:[
+      {id:'f1',name:'Place order',color:FLOW_COLORS[0],rps:120,steps:[S('mob','','order shown'),S('apigw','POST /v1/orders','201 + order JSON'),S('orders','createOrder()','201 Created'),S('saga','begin checkout saga','order confirmed'),S('pay','authorize payment','authorized'),S('payprov','POST /charges','charge_id')]},
+      {id:'f2',name:'Browse catalog',color:FLOW_COLORS[2],rps:2400,steps:[S('web','','render grid'),S('cdn','GET /products','200 cached'),S('apigw','cache miss, forward','200 JSON'),S('inv','listProducts()','products[]'),S('redis','GET products:*','HIT')]},
+      {id:'f3',name:'Order event fan-out',color:FLOW_COLORS[1],rps:120,steps:[S('orders',''),S('kafka','publish order.created'),S('notif','consume event'),S('email','send receipt')]},
+      {id:'f4',name:'Live order status',color:FLOW_COLORS[3],rps:300,steps:[S('mob','','status shown'),S('ws','subscribe order:8812','status: shipped')]},
+    ]}; },
+  monolith: ()=>{ const nodes=[
+      N('web','web','Web App',-14,-3), N('mob','mobile','Mobile App',-14,4),
+      N('lb','lb','Cloud Load Balancer',-8,0.5,{capacity:20000}),
+      N('gw','apigw','Nginx Gateway',-2.5,0.5,{name:'Nginx Gateway',capacity:6000,desc:'TLS termination, routing and rate limiting.'}),
+      N('api','node','Node.js API',2.5,0.5,{capacity:1200,desc:'Express app: auth, users, orders.'}),
+      N('cache','cache','Redis',2.5,-5,{capacity:40000,desc:'Sessions and hot profile reads.'}),
+      N('db','sql','PostgreSQL',2.5,6,{capacity:900,desc:'Primary database on the same host.'}),
+      N('queue','queue','Job Queue',9.5,-2,{capacity:5000,desc:'BullMQ jobs stored in Redis.'}),
+      N('worker','worker','Email Worker',9.5,3.5,{capacity:60}),
+      N('mail','notify','Email Provider',15.5,3.5),
+    ];
+    const groups=[G('host1','grp-server','app-server-01',['gw','api','cache','db'],nodes,'8 vCPU / 32 GB. Gateway, API, cache and database on one machine.'),
+                  G('host2','grp-vm','worker-01',['queue','worker'],nodes,'2 vCPU VM for background jobs.')];
+    return { title:'Single-server deployment', nodes:[...nodes,...groups],
+    edges:[E('web','lb','HTTPS'),E('mob','lb','HTTPS'),E('lb','gw','HTTP/2','multiplex'),E('gw','api','HTTP'),E('api','cache','RESP'),E('api','db','SQL'),
+           E('api','queue','enqueue','oneway'),E('queue','worker','consume','stream'),E('worker','mail','SMTP','oneway')],
+    flows:[
+      {id:'f1',name:'Read profile',color:FLOW_COLORS[2],rps:900,steps:[S('web','','render'),S('lb','GET /me','200'),S('gw','proxy_pass','200'),S('api','getProfile()','user JSON'),S('cache','GET user:42','HIT')]},
+      {id:'f2',name:'Sign up',color:FLOW_COLORS[0],rps:40,steps:[S('mob','','welcome screen'),S('lb','POST /signup','201'),S('gw','proxy_pass','201'),S('api','createUser()','201 Created'),S('db','INSERT users','id=1042')]},
+      {id:'f3',name:'Welcome email',color:FLOW_COLORS[1],rps:40,steps:[S('api',''),S('queue','add job welcome'),S('worker','process job'),S('mail','send email')]},
+    ]}; },
+  serverless: ()=>({
+    title:'Serverless orders on AWS',
+    nodes:[
+      N('region','aws-vpc','AWS us-east-1',3,0,{w:22,d:19}),
+      N('spa','web','React SPA',-13,0), N('cf','aws-cloudfront','CloudFront',-5,5.5), N('s3','aws-s3','Static Site Bucket',1,7.5),
+      N('agw','aws-apigw','API Gateway',-5,-2,{capacity:10000}), N('cog','aws-cognito','Cognito',-5,-7.5),
+      N('lam','aws-lambda','Orders Function',1,-2,{capacity:1000,desc:'Reserved concurrency 1000.'}), N('ddb','aws-dynamodb','Orders Table',6.5,-6.5,{capacity:4000}),
+      N('sqs','aws-sqs','Jobs Queue',6.5,1.5), N('wk','aws-lambda','Worker Function',11,1.5,{capacity:100}), N('sns','aws-sns','Alerts Topic',11,6.5),
+    ],
+    edges:[E('spa','cf','HTTPS'),E('cf','s3','S3 API'),E('spa','agw','HTTPS'),E('agw','cog','Authorize'),E('agw','lam','Invoke'),E('lam','ddb','PutItem'),
+           E('lam','sqs','SendMessage','oneway'),E('sqs','wk','Trigger','stream'),E('wk','sns','Publish','oneway')],
+    flows:[
+      {id:'f1',name:'Submit order',color:FLOW_COLORS[0],rps:350,steps:[S('spa','','toast: placed'),S('agw','POST /orders','201'),S('lam','handler(event)','{orderId}'),S('ddb','PutItem orders','OK')]},
+      {id:'f2',name:'Load SPA',color:FLOW_COLORS[2],rps:1500,steps:[S('spa',''),S('cf','GET /index.html','200 edge-cached'),S('s3','GetObject','200')]},
+      {id:'f3',name:'Async job',color:FLOW_COLORS[3],rps:80,steps:[S('lam',''),S('sqs','SendMessage'),S('wk','batch of 10'),S('sns','Publish alert')]},
+    ]
+  }),
+  azure: ()=>({
+    title:'IoT telemetry on Azure',
+    nodes:[
+      N('vnet','az-vnet','Telemetry VNet',3,-1,{w:17,d:18}),
+      N('iot','iot','Field Sensors',-14,-4), N('ops','mobile','Ops Mobile',-14,5),
+      N('hub','az-eventhubs','Telemetry Hub',-3,-4,{capacity:50000}), N('fn','az-functions','Ingest Function',2.5,-4,{capacity:3000}),
+      N('cos','az-cosmos','Telemetry Store',8,-7.5,{capacity:10000}), N('sb','az-servicebus','Alert Queue',8,-0.5),
+      N('aks','az-aks','Analytics (AKS)',13.5,-0.5), N('apim','az-apim','API Management',-8,5,{capacity:4000}),
+      N('app','az-appservice','Ops API',2.5,5,{capacity:500}),
+    ],
+    edges:[E('iot','hub','MQTT','stream'),E('hub','fn','Trigger','stream'),E('fn','cos','Upsert'),E('fn','sb','Enqueue','oneway'),E('sb','aks','Consume','stream'),
+           E('ops','apim','HTTPS'),E('apim','app','HTTP/2','multiplex'),E('app','cos','Query')],
+    flows:[
+      {id:'f1',name:'Telemetry ingest',color:FLOW_COLORS[2],rps:2500,steps:[S('iot',''),S('hub','send batch'),S('fn','onEvents()','checkpoint'),S('cos','upsert reading','201')]},
+      {id:'f2',name:'Dashboard query',color:FLOW_COLORS[0],rps:60,steps:[S('ops','','chart'),S('apim','GET /sites/42','200'),S('app','getReadings()','rows'),S('cos','SELECT last 24h','items[]')]},
+    ]
+  }),
+  blank: ()=>({title:'Untitled architecture',nodes:[],edges:[],flows:[]})
+};
+
+/* request hops forward, then response hops back. One-way and streaming links carry no reply. */
+function hopsOf(flow, edges){
+  edges=edges||[]; const s=flow.steps, h=[];
+  for(let i=0;i<s.length-1;i++){ const e=edgeBetween(edges,s[i].node,s[i+1].node), k=kindOf(e);
+    h.push({from:s[i].node,to:s[i+1].node,dir:k==='oneway'?'evt':k==='stream'?'stream':'req',kind:k,edge:e&&e.id,note:s[i+1].note||''}); }
+  for(let i=s.length-1;i>0;i--){ const e=edgeBetween(edges,s[i].node,s[i-1].node), k=kindOf(e);
+    if(k==='oneway'||k==='stream') continue;
+    h.push({from:s[i].node,to:s[i-1].node,dir:'res',kind:k,edge:e&&e.id,note:s[i].ret||'response'}); }
+  return h;
+}
+
+/* ---------------- 3D helpers ---------------- */
+function mat(color, o){ return new T.MeshStandardMaterial(Object.assign({color, roughness:.5, metalness:.12}, o||{})); }
+function glowMat(color){ return new T.MeshBasicMaterial({color}); }
+function shade(hex,f){ const c=new T.Color(hex); c.multiplyScalar(f); return c; }
+function tint(hex,f){ const c=new T.Color(hex); c.lerp(new T.Color('#ffffff'),f); return c; }
+function add(g, geo, m, x,y,z){ const me=new T.Mesh(geo,m); me.position.set(x||0,y||0,z||0); me.castShadow=true; me.receiveShadow=true; g.add(me); return me; }
+
+function buildShape(shape, color){
+  const g = new T.Group(); let h = 1.2;
+  const M = mat(color), D = mat(shade(color,.55)), L = glowMat(tint(color,.55));
+  switch(shape){
+    case 'server': case 'vm': {
+      add(g,new T.BoxGeometry(1.5,1.6,1.5), shape==='vm'?mat(color,{transparent:true,opacity:.82}):M, 0,.8,0);
+      if(shape==='vm') add(g,new T.BoxGeometry(.8,.8,.8),D,0,.8,0);
+      for(let i=0;i<3;i++) add(g,new T.BoxGeometry(1.2,.07,.03),L,0,.35+i*.45,.77);
+      h=1.6; break; }
+    case 'monitor': {
+      add(g,new T.BoxGeometry(2,1.25,.14),D,0,1.3,0); add(g,new T.BoxGeometry(1.84,1.1,.02),L,0,1.3,.08);
+      add(g,new T.CylinderGeometry(.08,.08,.6,10),D,0,.4,0); add(g,new T.BoxGeometry(.9,.07,.5),M,0,.04,0);
+      h=1.95; break; }
+    case 'phone': {
+      add(g,new T.BoxGeometry(.8,1.5,.14),D,0,.78,0); add(g,new T.BoxGeometry(.68,1.28,.02),L,0,.8,.08);
+      add(g,new T.BoxGeometry(1.1,.06,.6),M,0,.03,0); h=1.55; break; }
+    case 'iot': {
+      add(g,new T.BoxGeometry(1,.55,1),M,0,.28,0); add(g,new T.CylinderGeometry(.04,.04,.7,8),D,.3,.9,.3);
+      add(g,new T.SphereGeometry(.09,12,10),L,.3,1.27,.3); h=1.3; break; }
+    case 'actor': {
+      add(g,new T.CapsuleGeometry(.34,.62,6,14),M,0,.68,0); add(g,new T.SphereGeometry(.3,20,16),M,0,1.5,0); h=1.8; break; }
+    case 'ext': {
+      add(g,new T.DodecahedronGeometry(.82),mat(color,{flatShading:true}),0,.86,0); h=1.7; break; }
+    case 'gateway': {
+      add(g,new T.BoxGeometry(2.5,.5,1.1),M,0,.25,0);
+      for(let i=-1;i<=1;i++) add(g,new T.BoxGeometry(.18,.55,.9),D,i*.8,.78,0);
+      add(g,new T.BoxGeometry(2.3,.14,1),L,0,1.1,0); h=1.2; break; }
+    case 'globe': {
+      add(g,new T.SphereGeometry(.85,28,20),M,0,.9,0);
+      const w=new T.Mesh(new T.SphereGeometry(.88,12,8),new T.MeshBasicMaterial({color:tint(color,.6),wireframe:true,transparent:true,opacity:.5}));
+      w.position.y=.9; g.add(w); h=1.75; break; }
+    case 'dns': {
+      add(g,new T.CylinderGeometry(.28,.38,1.3,14),M,0,.65,0); add(g,new T.SphereGeometry(.36,18,14),L,0,1.55,0); h=1.9; break; }
+    case 'wall': {
+      add(g,new T.BoxGeometry(2.1,1.3,.4),M,0,.65,0);
+      for(let r=0;r<3;r++) add(g,new T.BoxGeometry(2.12,.04,.42),D,0,.33+r*.33,0);
+      h=1.3; break; }
+    case 'lb': {
+      add(g,new T.CylinderGeometry(1,1.05,.38,24),M,0,.19,0); add(g,new T.ConeGeometry(.45,.6,4),L,0,.68,0); h=1.0; break; }
+    case 'ring': {
+      const t=add(g,new T.TorusGeometry(.85,.15,12,40),M,0,.55,0); t.rotation.x=Math.PI/2;
+      for(let i=0;i<5;i++){ const a=i/5*Math.PI*2; add(g,new T.SphereGeometry(.17,12,10),L,Math.cos(a)*.85,.55,Math.sin(a)*.85); }
+      h=.9; break; }
+    case 'container': {
+      add(g,new T.BoxGeometry(1.3,1,1.3),M,0,.5,0);
+      for(let i=-2;i<=2;i++) add(g,new T.BoxGeometry(.05,.9,1.32),D,i*.25,.5,0);
+      h=1.0; break; }
+    case 'cluster': {
+      const p=[[-.42,-.42],[.42,-.42],[-.42,.42],[.42,.42]];
+      p.forEach(([x,z])=>add(g,new T.BoxGeometry(.72,.72,.72),M,x,.36,z));
+      add(g,new T.BoxGeometry(.72,.72,.72),L,0,1.08,0); h=1.45; break; }
+    case 'octa': {
+      add(g,new T.OctahedronGeometry(.82),mat(color,{flatShading:true}),0,.9,0); h=1.75; break; }
+    case 'hex': {
+      add(g,new T.CylinderGeometry(1,1,.7,6),M,0,.35,0); add(g,new T.CylinderGeometry(.82,.95,.16,6),L,0,.78,0); h=.9; break; }
+    case 'orch': {
+      add(g,new T.CylinderGeometry(1.05,1.05,.32,6),M,0,.16,0); add(g,new T.CylinderGeometry(.78,.78,.32,6),D,0,.48,0);
+      add(g,new T.CylinderGeometry(.5,.5,.32,6),M,0,.8,0); add(g,new T.SphereGeometry(.2,14,12),L,0,1.12,0); h=1.3; break; }
+    case 'db': {
+      add(g,new T.CylinderGeometry(.82,.82,1.3,32),M,0,.65,0);
+      [.3,.75].forEach(y=>{ const r=add(g,new T.TorusGeometry(.83,.035,8,40),D,0,y,0); r.rotation.x=Math.PI/2; });
+      add(g,new T.CylinderGeometry(.7,.7,.03,32),L,0,1.31,0); h=1.32; break; }
+    case 'cache': {
+      add(g,new T.CylinderGeometry(.85,.85,.7,8),M,0,.35,0); add(g,new T.CylinderGeometry(.6,.6,.08,8),L,0,.74,0); h=.8; break; }
+    case 'bucket': {
+      add(g,new T.CylinderGeometry(.92,.62,1.15,28),M,0,.58,0);
+      const r=add(g,new T.TorusGeometry(.92,.05,8,36),L,0,1.15,0); r.rotation.x=Math.PI/2; h=1.2; break; }
+    case 'search': {
+      const r=add(g,new T.TorusGeometry(.5,.13,12,32),M,0,1.1,0);
+      add(g,new T.CircleGeometry(.42,28),new T.MeshBasicMaterial({color:tint(color,.6),transparent:true,opacity:.35,side:T.DoubleSide}),0,1.1,0);
+      const hd=add(g,new T.CylinderGeometry(.1,.12,.75,10),D,.42,.38,0); hd.rotation.z=.6; h=1.7; break; }
+    case 'warehouse': {
+      add(g,new T.CylinderGeometry(1.1,1.1,.95,32),M,0,.48,0);
+      [.25,.55].forEach(y=>{ const r=add(g,new T.TorusGeometry(1.11,.035,8,44),D,0,y,0); r.rotation.x=Math.PI/2; });
+      add(g,new T.CylinderGeometry(.95,.95,.03,32),L,0,.96,0); h=1.0; break; }
+    case 'queue': {
+      for(let i=0;i<3;i++) add(g,new T.BoxGeometry(1.9,.24,.95),i===2?L:M,0,.14+i*.32,0); h=.95; break; }
+    case 'stream': {
+      add(g,new T.BoxGeometry(2.7,.4,.8),M,0,.2,0);
+      for(let i=0;i<5;i++) add(g,new T.BoxGeometry(.06,.42,.82),L,-1.08+i*.54,.2,0);
+      h=.5; break; }
+    case 'broadcast': {
+      add(g,new T.CylinderGeometry(.2,.32,1,12),M,0,.5,0);
+      [.45,.7].forEach((r,i)=>{ const t=add(g,new T.TorusGeometry(r,.05,8,32),L,0,1.15+i*.18,0); t.rotation.x=Math.PI/2; });
+      add(g,new T.SphereGeometry(.2,14,12),L,0,1.1,0); h=1.45; break; }
+    case 'ops': {
+      add(g,new T.SphereGeometry(.65,26,18),M,0,.8,0);
+      const t=add(g,new T.TorusGeometry(.95,.04,8,48),L,0,.8,0); t.rotation.x=1.2; t.rotation.y=.3; h=1.55; break; }
+    default: add(g,new T.BoxGeometry(1.4,1,1.4),M,0,.5,0); h=1;
+  }
+  return {group:g, h};
+}
+
+function roundRect(x,X,Y,W,H,R){ x.beginPath(); x.moveTo(X+R,Y); x.arcTo(X+W,Y,X+W,Y+H,R); x.arcTo(X+W,Y+H,X,Y+H,R); x.arcTo(X,Y+H,X,Y,R); x.arcTo(X,Y,X+W,Y,R); x.closePath(); }
+/* Labels are drawn on large canvases (LK = supersample factor) so they stay crisp in 4K/8K exports.
+   opts.lines: extra description lines; opts.status: {text,color} load line; opts.border: border colour. Anchored at the bottom centre. */
+const LK=2;
+function labelTexture(c){ const tex=new T.CanvasTexture(c); tex.generateMipmaps=true; tex.minFilter=T.LinearMipmapLinearFilter; tex.magFilter=T.LinearFilter; tex.anisotropy=8; return tex; }
+function wrapText(x,text,maxW,maxLines){
+  const words=String(text||'').split(/\s+/).filter(Boolean), lines=[]; let cur='';
+  for(const w of words){ const t=cur?cur+' '+w:w; if(x.measureText(t).width<=maxW) cur=t; else { if(cur) lines.push(cur); cur=w; } if(lines.length===maxLines) break; }
+  if(lines.length<maxLines&&cur) lines.push(cur);
+  if(lines.length===maxLines && words.join(' ').length>lines.join(' ').length){ let l=lines[maxLines-1]; while(l.length>1&&x.measureText(l+'…').width>maxW) l=l.slice(0,-1); lines[maxLines-1]=l+'…'; }
+  return lines;
+}
+function makeLabel(title, sub, accent, opts){
+  opts=opts||{}; const K=LK, W=640*K;
+  const disp=s=>`600 ${s}px "Barlow Semi Condensed","Arial Narrow",sans-serif`, mono=`500 ${25*K}px "IBM Plex Mono",monospace`,
+        body=`400 ${23*K}px "IBM Plex Sans",system-ui,sans-serif`, stat=`600 ${24*K}px "IBM Plex Mono",monospace`;
+  const meas=document.createElement('canvas').getContext('2d');
+  meas.font=body; const lines=opts.lines&&opts.lines.length?wrapText(meas,opts.lines.join(' '),W-110*K,2):[];
+  const H=(150+lines.length*32+(lines.length?10:0)+(opts.status?38:0))*K;
+  const c=document.createElement('canvas'); c.width=W; c.height=H; const x=c.getContext('2d');
+  let ts=50*K; x.font=disp(ts); while(x.measureText(title).width>W-80*K && ts>28*K){ ts-=2*K; x.font=disp(ts); }
+  let bw=x.measureText(title).width; x.font=mono; const sw=x.measureText(sub).width+26*K; bw=Math.max(bw,sw);
+  x.font=body; lines.forEach(l=>bw=Math.max(bw,x.measureText(l).width)); if(opts.status){ x.font=stat; bw=Math.max(bw,x.measureText(opts.status.text).width+26*K); }
+  bw=Math.min(W-8*K,bw+56*K);
+  roundRect(x,(W-bw)/2,10*K,bw,H-20*K,22*K); x.fillStyle='rgba(10,17,29,0.9)'; x.fill();
+  x.lineWidth=(opts.border?4:2.5)*K; x.strokeStyle=opts.border||accent+'88'; x.stroke();
+  x.textAlign='center'; x.fillStyle='#ecf2fa'; x.font=disp(ts); x.fillText(title,W/2,70*K);
+  x.font=mono; x.fillStyle=accent; x.fillText(sub,W/2+12*K,114*K);
+  x.beginPath(); x.arc(W/2-sw/2+4*K,105*K,6*K,0,Math.PI*2); x.fill();
+  let y=114*K;
+  if(lines.length){ x.font=body; x.fillStyle='#b9c6d8'; y+=10*K; lines.forEach(l=>{ y+=32*K; x.fillText(l,W/2,y); }); }
+  if(opts.status){ y+=38*K; x.font=stat; x.fillStyle=opts.status.color||'#9fb0c8'; x.fillText(opts.status.text,W/2,y); }
+  const sp=new T.Sprite(new T.SpriteMaterial({map:labelTexture(c),depthTest:false,depthWrite:false,transparent:true}));
+  sp.center.set(.5,0); sp.scale.set(3.6,3.6*H/W,1); sp.renderOrder=20; return sp;
+}
+const TAG_CACHE=new Map();
+function makeTag(text,border){
+  const key=text+'|'+(border||'');
+  let tex=TAG_CACHE.get(key);
+  if(!tex){ const K=LK, W=380*K,H=64*K,c=document.createElement('canvas'); c.width=W; c.height=H; const x=c.getContext('2d');
+    x.font=`500 ${27*K}px "IBM Plex Mono",monospace`; const w=Math.min(W-6*K,x.measureText(text).width+30*K);
+    roundRect(x,(W-w)/2,8*K,w,H-16*K,14*K); x.fillStyle='rgba(14,22,36,0.92)'; x.fill(); x.strokeStyle=border||'#3a4c69'; x.lineWidth=2*K; x.stroke();
+    x.fillStyle='#c0cee2'; x.textAlign='center'; x.fillText(text,W/2,43*K);
+    tex=labelTexture(c); tex.userData={shared:true}; TAG_CACHE.set(key,tex); if(TAG_CACHE.size>400){ const k=TAG_CACHE.keys().next().value; TAG_CACHE.get(k).dispose(); TAG_CACHE.delete(k); } }
+  const sp=new T.Sprite(new T.SpriteMaterial({map:tex,depthTest:false,depthWrite:false,transparent:true}));
+  sp.scale.set(2.0,2.0*64/380,1); sp.renderOrder=15; return sp;
+}
+function clearTagCache(){ TAG_CACHE.forEach(t=>t.dispose()); TAG_CACHE.clear(); }
+let GLOW_TEX=null;
+function glowTex(){ if(GLOW_TEX) return GLOW_TEX; const c=document.createElement('canvas'); c.width=c.height=64; const x=c.getContext('2d');
+  const g=x.createRadialGradient(32,32,0,32,32,32); g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(.3,'rgba(255,255,255,.45)'); g.addColorStop(1,'rgba(255,255,255,0)');
+  x.fillStyle=g; x.fillRect(0,0,64,64); GLOW_TEX=new T.CanvasTexture(c); GLOW_TEX.userData={shared:true}; return GLOW_TEX; }
+function disposeTree(o){ o.traverse(m=>{ if(m.geometry) m.geometry.dispose(); if(m.material){ (Array.isArray(m.material)?m.material:[m.material]).forEach(mm=>{ ['map','alphaMap'].forEach(k=>{ const t=mm[k]; if(t&&!(t.userData&&t.userData.shared)) t.dispose(); }); mm.dispose(); }); } }); }
+
+function drawStamp(ctx,w,h,title,sub){
+  const s=Math.max(.6,w/1500); ctx.save();
+  ctx.font=`600 ${Math.round(22*s)}px "Barlow Semi Condensed","Arial Narrow",sans-serif`;
+  const tw=ctx.measureText(title).width; ctx.font=`500 ${Math.round(12*s)}px "IBM Plex Mono",monospace`;
+  const sw=ctx.measureText(sub).width; const bw=Math.max(tw,sw)+28*s, bh=56*s, X=14*s, Y=h-bh-14*s;
+  roundRect(ctx,X,Y,bw,bh,8*s); ctx.fillStyle='rgba(13,20,32,.88)'; ctx.fill(); ctx.strokeStyle='#2c3b54'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.fillStyle='#ecf2fa'; ctx.font=`600 ${Math.round(22*s)}px "Barlow Semi Condensed","Arial Narrow",sans-serif`; ctx.fillText(title,X+14*s,Y+25*s);
+  ctx.fillStyle='#8395ad'; ctx.font=`500 ${Math.round(12*s)}px "IBM Plex Mono",monospace`; ctx.fillText(sub,X+14*s,Y+44*s);
+  ctx.restore();
+}
+
+/* ---------------- connector geometry helpers ---------------- */
+const UP=new T.Vector3(0,1,0);
+function taper(t){ return Math.min(1,t*5,(1-t)*5); }
+/* a copy of curve shifted sideways (horizontal perpendicular), converging at the ends */
+function offsetCurve(curve,off){ const pts=[]; for(let i=0;i<=48;i++){ const t=i/48, p=curve.getPoint(t), tn=curve.getTangent(t);
+  const perp=new T.Vector3(-tn.z,0,tn.x).normalize(); pts.push(p.addScaledVector(perp,off*taper(t))); } return new T.CatmullRomCurve3(pts); }
+/* a helix wound around curve, used for multiplexed lanes */
+function braidCurve(curve,r,phase){ const len=curve.getLength(), turns=Math.max(1.5,len/2.6), pts=[];
+  for(let i=0;i<=96;i++){ const t=i/96, p=curve.getPoint(t), tn=curve.getTangent(t).normalize();
+    const perp=new T.Vector3(-tn.z,0,tn.x).normalize(), bin=new T.Vector3().crossVectors(tn,perp).normalize(), a=t*Math.PI*2*turns+phase, rr=r*taper(t);
+    pts.push(p.addScaledVector(perp,Math.cos(a)*rr).addScaledVector(bin,Math.sin(a)*rr)); } return new T.CatmullRomCurve3(pts); }
+let DASH_IMG=null, STREAM_IMG=null;
+function dashTexture(len){ if(!DASH_IMG){ const c=document.createElement('canvas'); c.width=64; c.height=4; const x=c.getContext('2d'); x.fillStyle='#000'; x.fillRect(0,0,64,4); x.fillStyle='#fff'; x.fillRect(0,0,34,4); DASH_IMG=c; }
+  const t=new T.CanvasTexture(DASH_IMG); t.wrapS=t.wrapT=T.RepeatWrapping; t.repeat.set(Math.max(2,len/.55),1); return t; }
+function streamTexture(len){ if(!STREAM_IMG){ const c=document.createElement('canvas'); c.width=128; c.height=4; const x=c.getContext('2d');
+    const g=x.createLinearGradient(0,0,128,0); g.addColorStop(0,'rgba(255,255,255,.25)'); g.addColorStop(.62,'rgba(255,255,255,.25)'); g.addColorStop(.86,'rgba(255,255,255,1)'); g.addColorStop(1,'rgba(255,255,255,.25)');
+    x.fillStyle=g; x.fillRect(0,0,128,4); STREAM_IMG=c; }
+  const t=new T.CanvasTexture(STREAM_IMG); t.wrapS=t.wrapT=T.RepeatWrapping; t.repeat.set(Math.max(1,len/1.3),1); return t; }
+
+/* ---------------- scene engine ---------------- */
+class ArchScene {
+  constructor(host, cb){
+    this.host=host; this.cb=cb;
+    const r=this.renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+    r.setPixelRatio(this.basePR()); r.shadowMap.enabled=true; r.shadowMap.type=T.PCFSoftShadowMap;
+    host.appendChild(r.domElement);
+    const sc=this.scene=new T.Scene(); sc.background=new T.Color(BG); sc.fog=new T.Fog(BG,55,120);
+    this.camera=new T.PerspectiveCamera(40,1,.1,400); this.camera.position.set(16,19,22);
+    const ctl=this.controls=new T.OrbitControls(this.camera,r.domElement);
+    ctl.enableDamping=true; ctl.dampingFactor=.08; ctl.maxPolarAngle=1.48; ctl.minDistance=5; ctl.maxDistance=110;
+    sc.add(new T.HemisphereLight(0xc4d8ff,0x18202e,.85));
+    const dl=new T.DirectionalLight(0xffffff,.85); dl.position.set(14,26,12); dl.castShadow=true;
+    dl.shadow.mapSize.set(2048,2048); Object.assign(dl.shadow.camera,{left:-34,right:34,top:34,bottom:-34,near:1,far:80}); dl.shadow.bias=-.0006;
+    sc.add(dl); this.dl=dl;
+    const gnd=new T.Mesh(new T.PlaneGeometry(400,400),new T.MeshStandardMaterial({color:0x101a2a,roughness:1,metalness:0}));
+    gnd.rotation.x=-Math.PI/2; gnd.receiveShadow=true; sc.add(gnd);
+    const grid=new T.GridHelper(160,160,0x22324b,0x172336); grid.position.y=.003; sc.add(grid);
+    this.zoneLayer=new T.Group(); this.groupLayer=new T.Group(); this.nodeLayer=new T.Group(); this.edgeLayer=new T.Group(); this.fxLayer=new T.Group();
+    sc.add(this.zoneLayer,this.groupLayer,this.nodeLayer,this.edgeLayer,this.fxLayer);
+    this.nodes=new Map(); this.edges=new Map(); this.groups=new Map();
+    this.data={nodes:[],edges:[],flows:[]}; this.loads={node:{},edge:{}}; this.labelMode='basic';
+    this.packets=[]; this.pulses=[]; this.journeys=[]; this.liveAcc={}; this.speed=1; this.live=false; this.flowRun=null; this.hl=null; this.animTex=[];
+    this.sel=null; this.marked=new Set(); this.mode='select'; this.selRings=[]; this.markRings=[];
+    this.ray=new T.Raycaster(); this.ptr=new T.Vector2(); this.plane=new T.Plane(new T.Vector3(0,1,0),0);
+    this.drag=null;
+    this._down=this.onDown.bind(this); this._move=this.onMove.bind(this); this._up=this.onUp.bind(this); this._hover=this.onHover.bind(this); this._leave=()=>this.cb.onHover&&this.cb.onHover(null);
+    host.addEventListener('pointerdown',this._down,true);
+    window.addEventListener('pointermove',this._move); window.addEventListener('pointerup',this._up);
+    r.domElement.addEventListener('pointermove',this._hover); r.domElement.addEventListener('pointerleave',this._leave);
+    this.ro=new ResizeObserver(()=>this.resize()); this.ro.observe(host); this.resize();
+    this.clock=new T.Clock(); this.capture=null; this.alive=true;
+    const loop=()=>{ if(!this.alive) return; this.raf=requestAnimationFrame(loop); this.tick(); }; loop();
+  }
+  destroy(){ this.alive=false; cancelAnimationFrame(this.raf); this.ro.disconnect();
+    this.host.removeEventListener('pointerdown',this._down,true); window.removeEventListener('pointermove',this._move); window.removeEventListener('pointerup',this._up);
+    this.renderer.dispose(); this.renderer.domElement.remove(); }
+  basePR(){ return Math.min(Math.max(window.devicePixelRatio||1,1.5),2); }
+  resize(){ if(this.capture) return; const w=Math.max(10,this.host.clientWidth), h=Math.max(10,this.host.clientHeight); this.renderer.setSize(w,h,false); this.camera.aspect=w/h; this.camera.updateProjectionMatrix(); }
+  /* Size the drawing buffer for export: targetW pixels wide at the given aspect (default: the stage's). Returns the width used. */
+  setTargetSize(targetW,aspect){
+    const r=this.renderer, gl=r.getContext();
+    const cssW=Math.max(10,this.host.clientWidth), cssH=Math.max(10,this.host.clientHeight), a=aspect||cssW/cssH;
+    const maxRB=Math.min(r.capabilities.maxTextureSize||8192, gl.getParameter(gl.MAX_RENDERBUFFER_SIZE)||8192, 8192);
+    let W=Math.round(targetW), H=Math.round(W/a);
+    if(H>maxRB){ H=maxRB; W=Math.round(H*a); } if(W>maxRB){ W=maxRB; H=Math.round(W/a); }
+    r.setPixelRatio(1); r.setSize(W,H,false); this.camera.aspect=W/H; this.camera.updateProjectionMatrix();
+    return W;
+  }
+  restoreRes(){ this.renderer.setPixelRatio(this.basePR()); this.resize(); this.restoreCam(); }
+  setShadowRes(n){ const s=this.dl.shadow; if(s.mapSize.x===n) return; s.mapSize.set(n,n); if(s.map){ s.map.dispose(); s.map=null; } }
+
+  /* ---------- data sync ---------- */
+  setData(d, opts){
+    if(opts&&opts.labelMode) this.labelMode=opts.labelMode;
+    this.data={nodes:d.nodes,edges:d.edges,flows:d.flows||[]}; this.loads=computeLoads(this.data);
+    const blocks=d.nodes.filter(n=>!isGroupType(n.type)), keep=new Set(blocks.map(n=>n.id));
+    for(const [id,o] of this.nodes){ if(!keep.has(id)){ o.group.parent.remove(o.group); disposeTree(o.group); this.nodes.delete(id); } }
+    for(const n of blocks){
+      const m=meta(n.type); let o=this.nodes.get(n.id); const load=Math.round(this.loads.node[n.id]||0);
+      const sig=[n.type,n.name,n.w,n.d,n.desc,n.capacity,n.replicas,load,this.labelMode].join('|');
+      if(o && o.sig!==sig){ o.group.parent.remove(o.group); disposeTree(o.group); o=null; }
+      if(!o){ o=this.buildNode(n,m,load); o.sig=sig; this.nodes.set(n.id,o); }
+      if(!(this.drag && this.drag.ids.includes(n.id))) o.group.position.set(n.x,0,n.z);
+    }
+    this.rebuildEdges(); this.rebuildGroups(); this.refreshRings();
+  }
+  refreshLabels(){ this.nodes.forEach(o=>o.sig='x'); this.groups.forEach(g=>g.sig='x'); this.setData(this.data); }
+  nodeStatus(n,load){
+    if(!load) return null; const u=utilOf(n,load), c=capOf(n);
+    return {text:fmtRps(load)+' req/s'+(c?' · '+Math.round(u*100)+'% of '+fmtRps(c):''), color:utilColor(u)||'#9fb0c8', u};
+  }
+  buildNode(n,m,load){
+    const color=colorOf(n.type), detail=this.labelMode==='detail';
+    if(m.shape==='zone'){
+      const w=n.w||10,d=n.d||8, g=new T.Group();
+      const pl=new T.Mesh(new T.BoxGeometry(w,.06,d),new T.MeshStandardMaterial({color,transparent:true,opacity:.07,roughness:1,depthWrite:false}));
+      pl.position.y=.03; pl.receiveShadow=true; g.add(pl);
+      const ed=new T.LineSegments(new T.EdgesGeometry(new T.BoxGeometry(w,.06,d)),new T.LineBasicMaterial({color,transparent:true,opacity:.75}));
+      ed.position.y=.04; g.add(ed);
+      const lb=makeLabel(n.name,(m.provider?m.provider+' · ':'')+m.label.toUpperCase(),color,{lines:detail?[descOf(n)]:null}); lb.scale.multiplyScalar(.85);
+      lb.position.set(-w/2+1.9,.15,d/2-.5); g.add(lb);
+      g.userData={id:n.id,zone:true}; this.zoneLayer.add(g);
+      return {group:g,h:.1,zone:true};
+    }
+    const {group,h}=buildShape(m.shape,color);
+    const st=this.nodeStatus(n,load);
+    const lb=makeLabel(n.name,(m.provider?m.provider+' · ':'')+m.label,color,{lines:detail?[descOf(n)]:null,status:st,border:st&&st.u!=null&&st.u>=.7?st.color:null});
+    lb.position.y=h+.35; group.add(lb);
+    if(st&&st.u!=null&&st.u>=.9){ // over-capacity warning ring
+      const ring=new T.Mesh(new T.RingGeometry(1.3,1.45,40),new T.MeshBasicMaterial({color:st.color,transparent:true,opacity:.85,side:T.DoubleSide}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=.02; group.add(ring); }
+    group.userData={id:n.id}; this.nodeLayer.add(group);
+    return {group,h};
+  }
+  anchor(id){ const o=this.nodes.get(id); if(!o) return null; const p=o.group.position; return new T.Vector3(p.x,o.zone?.3:Math.max(.35,o.h*.5),p.z); }
+  curveBetween(a,b,side){
+    const A=this.anchor(a),B=this.anchor(b); if(!A||!B) return null;
+    const dir=new T.Vector3(B.x-A.x,0,B.z-A.z); const dist=dir.length(); if(dist<.01) return null; dir.normalize();
+    const pad=Math.min(1.05,dist*.3); const A2=A.clone().addScaledVector(dir,pad), B2=B.clone().addScaledVector(dir,-pad);
+    const mid=A2.clone().add(B2).multiplyScalar(.5); mid.y=Math.max(A.y,B.y)+.5+dist*.11;
+    if(side){ const perp=new T.Vector3(-dir.z,0,dir.x); mid.addScaledVector(perp,side*1.1); }
+    return new T.QuadraticBezierCurve3(A2,mid,B2);
+  }
+  isSel(kind,id){ const s=this.sel; if(!s) return false; if(s.kind==='multi') return kind==='node'&&s.ids.includes(id); return s.kind===kind&&s.id===id; }
+
+  /* ---------- edges: one look per connector kind ---------- */
+  rebuildEdges(){
+    for(const [,o] of this.edges){ this.edgeLayer.remove(o.group); disposeTree(o.group); }
+    this.edges.clear(); this.animTex=[];
+    const pairs=new Set(this.data.edges.map(e=>e.from+'>'+e.to));
+    for(const e of this.data.edges){
+      const curve=this.curveBetween(e.from,e.to,pairs.has(e.to+'>'+e.from)?1:0); if(!curve) continue;
+      this.edges.set(e.id,this.buildEdge(e,curve));
+    }
+  }
+  buildEdge(e,curve){
+    const kind=kindOf(e), sel=this.isSel('edge',e.id), hl=this.hl&&this.hl.ids.has(e.id)?this.hl.color:null;
+    const color=new T.Color(sel?'#4fd8ff':hl||'#5b7899'), arrowC=new T.Color(sel?'#4fd8ff':hl||'#8aa6c8');
+    const op=sel||hl?1:.85, r=sel?.065:hl?.06:.05, len=curve.getLength(), g=new T.Group(), lanes=[];
+    const tube=(c,rad,extra)=>{ const m=new T.Mesh(new T.TubeGeometry(c,Math.max(32,Math.round(len*8)),rad,8,false),new T.MeshBasicMaterial(Object.assign({color,transparent:true,opacity:op,depthWrite:op>=1},extra||{}))); g.add(m); return m; };
+    const cone=(c,atEnd,sz)=>{ const t=atEnd?1:0, tan=c.getTangent(t).normalize(); if(!atEnd) tan.negate(); const p=c.getPoint(t);
+      const m=new T.Mesh(new T.ConeGeometry(.17*(sz||1),.42*(sz||1),14),new T.MeshBasicMaterial({color:arrowC})); m.position.copy(p).addScaledVector(tan,-.16*(sz||1)); m.quaternion.setFromUnitVectors(UP,tan); g.add(m); };
+    if(kind==='duplex'){
+      const a=offsetCurve(curve,.17), b=offsetCurve(curve,-.17); tube(a,r*.75); tube(b,r*.75); cone(a,true,.8); cone(b,false,.8); lanes.push(a,b);
+    } else if(kind==='multiplex'){
+      for(let k=0;k<3;k++){ const c=braidCurve(curve,.14,k*Math.PI*2/3); tube(c,r*.5); lanes.push(c); } tube(curve,r*.35,{opacity:op*.5}); cone(curve,true);
+    } else if(kind==='oneway'){
+      tube(curve,r,{alphaMap:dashTexture(len),alphaTest:.5}); cone(curve,true);
+    } else if(kind==='stream'){
+      const tex=streamTexture(len); tube(curve,r*1.15,{map:tex}); this.animTex.push(tex); cone(curve,true);
+    } else {
+      tube(curve,r); cone(curve,true);
+      if(kind==='twoway'||kind==='halfduplex') cone(curve,false);
+      if(kind==='halfduplex'){ const t=curve.getTangent(.5).normalize(), p=curve.getPoint(.5);
+        const disc=new T.Mesh(new T.CylinderGeometry(.2,.2,.07,20),new T.MeshBasicMaterial({color:arrowC})); disc.position.copy(p); disc.quaternion.setFromUnitVectors(UP,t); g.add(disc); }
+    }
+    const hit=new T.Mesh(new T.TubeGeometry(curve,24,.3,6,false),new T.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false}));
+    hit.userData={edge:e.id}; g.add(hit);
+    const load=this.loads.edge[e.id]||0, short=CONNECTORS[kind].short;
+    const text=[e.label,short,load?fmtRps(load)+'/s':''].filter(Boolean).join(' · ');
+    if(text){ const tg=makeTag(text,hl||(sel?'#4fd8ff':null)); tg.position.copy(curve.getPoint(.5)).add(new T.Vector3(0,.42,0)); g.add(tg); }
+    this.edgeLayer.add(g);
+    return {group:g,curve,lanes,kind,hit,data:e};
+  }
+
+  /* ---------- groups: auto-fitting boxes around their members ---------- */
+  rebuildGroups(){
+    for(const [,o] of this.groups){ this.groupLayer.remove(o.obj); disposeTree(o.obj); }
+    this.groups.clear();
+    for(const g of this.data.nodes){ if(!isGroupType(g.type)) continue;
+      const mem=this.data.nodes.filter(n=>n.group===g.id&&this.nodes.get(n.id)&&!this.nodes.get(n.id).zone); if(!mem.length) continue;
+      let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9,hh=0;
+      mem.forEach(n=>{ const o=this.nodes.get(n.id), p=o.group.position; x0=Math.min(x0,p.x); x1=Math.max(x1,p.x); z0=Math.min(z0,p.z); z1=Math.max(z1,p.z); hh=Math.max(hh,o.h); });
+      const pad=1.75; x0-=pad; x1+=pad; z0-=pad; z1+=pad+.4; const w=x1-x0, d=z1-z0, H=hh+.55, cx=(x0+x1)/2, cz=(z0+z1)/2;
+      const m=meta(g.type), color=m.color, sel=this.isSel('node',g.id), obj=new T.Group();
+      const floor=new T.Mesh(new T.BoxGeometry(w,.05,d),new T.MeshStandardMaterial({color,transparent:true,opacity:sel?.2:.12,roughness:1,depthWrite:false}));
+      floor.position.set(cx,.028,cz); floor.receiveShadow=true; obj.add(floor);
+      const walls=new T.Mesh(new T.BoxGeometry(w,H,d),new T.MeshBasicMaterial({color,transparent:true,opacity:.045,side:T.DoubleSide,depthWrite:false}));
+      walls.position.set(cx,H/2,cz); walls.raycast=()=>{}; obj.add(walls);
+      const edges=new T.LineSegments(new T.EdgesGeometry(new T.BoxGeometry(w,H,d)),new T.LineBasicMaterial({color:sel?'#4fd8ff':color,transparent:true,opacity:sel?1:.75}));
+      edges.position.set(cx,H/2,cz); edges.raycast=()=>{}; obj.add(edges);
+      const load=this.loads.node[g.id]||0;
+      const lb=makeLabel(g.name,m.label.toUpperCase()+' · '+mem.length+(mem.length===1?' block':' blocks'),color,
+        {lines:this.labelMode==='detail'?[descOf(g)]:null,status:load?{text:fmtRps(load)+' req/s inside',color:'#9fb0c8'}:null});
+      lb.scale.multiplyScalar(.85); lb.center.set(.5,1); lb.position.set(x0+1.9,.05,z1+.15); obj.add(lb);
+      obj.userData={id:g.id,group:true}; this.groupLayer.add(obj);
+      this.groups.set(g.id,{obj,box:{x0,x1,z0,z1,H},members:mem.map(n=>n.id)});
+    }
+  }
+  setSelection(sel){ this.sel=sel; this.rebuildEdges(); this.rebuildGroups(); this.refreshRings(); }
+  setMarked(ids){ this.marked=new Set(ids||[]); this.refreshRings(); }
+  setHighlight(flow){
+    this.hl=null;
+    if(flow){ const ids=new Set(); for(let i=0;i<flow.steps.length-1;i++){ const e=edgeBetween(this.data.edges,flow.steps[i].node,flow.steps[i+1].node); if(e) ids.add(e.id); } this.hl={ids,color:flow.color}; }
+    this.rebuildEdges();
+  }
+  ring(id,color,list){ const o=this.nodes.get(id); if(!o||o.zone) return;
+    const r=new T.Mesh(new T.RingGeometry(1.35,1.55,48),new T.MeshBasicMaterial({color,transparent:true,opacity:.9,side:T.DoubleSide}));
+    r.rotation.x=-Math.PI/2; r.position.set(o.group.position.x,.025,o.group.position.z); this.fxLayer.add(r); list.push(r); }
+  refreshRings(){
+    [...this.selRings,...this.markRings].forEach(r=>{ this.fxLayer.remove(r); r.geometry.dispose(); r.material.dispose(); }); this.selRings=[]; this.markRings=[];
+    const s=this.sel; if(s){ (s.kind==='multi'?s.ids:s.kind==='node'?[s.id]:[]).forEach(id=>this.ring(id,'#4fd8ff',this.selRings)); }
+    this.marked.forEach(id=>this.ring(id,'#ffb547',this.markRings));
+  }
+
+  /* ---------- picking and dragging ---------- */
+  setPtr(e){ const rc=this.renderer.domElement.getBoundingClientRect(); this.ptr.set(((e.clientX-rc.left)/rc.width)*2-1,-((e.clientY-rc.top)/rc.height)*2+1); this.ray.setFromCamera(this.ptr,this.camera); }
+  pick(e){
+    this.setPtr(e);
+    const idOf=o=>{ while(o){ if(o.userData&&o.userData.id) return o.userData.id; o=o.parent; } return null; };
+    const nh=this.ray.intersectObjects(this.nodeLayer.children,true);
+    if(nh.length){ const id=idOf(nh[0].object); if(id) return {kind:'node',id}; }
+    const eh=this.ray.intersectObjects([...this.edges.values()].map(o=>o.hit),false);
+    if(eh.length) return {kind:'edge',id:eh[0].object.userData.edge};
+    const gh=this.ray.intersectObjects(this.groupLayer.children,true);
+    if(gh.length){ const id=idOf(gh[0].object); if(id) return {kind:'node',id,group:true}; }
+    const zh=this.ray.intersectObjects(this.zoneLayer.children,true);
+    if(zh.length){ const id=idOf(zh[0].object); if(id) return {kind:'node',id,zone:true}; }
+    return null;
+  }
+  groundPoint(e){ this.setPtr(e); const p=new T.Vector3(); return this.ray.ray.intersectPlane(this.plane,p)?p:null; }
+  onDown(e){
+    if(e.button!==0 || e.target!==this.renderer.domElement) return;
+    const hit=this.pick(e); this.downAt={x:e.clientX,y:e.clientY,hit,shift:e.shiftKey||e.metaKey||e.ctrlKey};
+    if(hit&&hit.kind==='node'){
+      this.controls.enabled=false;
+      if(this.mode==='select'&&!this.downAt.shift){
+        let ids=[hit.id];
+        if(hit.group) ids=this.data.nodes.filter(n=>n.group===hit.id).map(n=>n.id);
+        else if(this.sel&&this.sel.kind==='multi'&&this.sel.ids.includes(hit.id)) ids=this.sel.ids.slice();
+        const gp=this.groundPoint(e); if(!gp) return;
+        const start=new Map(); ids.forEach(id=>{ const o=this.nodes.get(id); if(o) start.set(id,{x:o.group.position.x,z:o.group.position.z}); });
+        this.drag={ids:[...start.keys()],start,gp0:gp,moved:false};
+      }
+    }
+  }
+  onMove(e){
+    if(!this.drag) return;
+    if(!this.drag.moved && this.downAt && Math.hypot(e.clientX-this.downAt.x,e.clientY-this.downAt.y)<4) return;
+    const gp=this.groundPoint(e); if(!gp) return;
+    const dx=Math.round((gp.x-this.drag.gp0.x)*2)/2, dz=Math.round((gp.z-this.drag.gp0.z)*2)/2;
+    this.drag.moved=true;
+    for(const id of this.drag.ids){ const s=this.drag.start.get(id), o=this.nodes.get(id); o.group.position.set(s.x+dx,0,s.z+dz);
+      const dn=this.data.nodes.find(n=>n.id===id); if(dn){ dn.x=s.x+dx; dn.z=s.z+dz; } }
+    this.rebuildEdges(); this.rebuildGroups(); this.refreshRings(); this.renderer.domElement.style.cursor='grabbing';
+  }
+  onUp(e){
+    const d=this.drag, down=this.downAt; this.drag=null; this.downAt=null; this.controls.enabled=true;
+    if(d&&d.moved){ this.cb.onMoveMany(d.ids.map(id=>{ const p=this.nodes.get(id).group.position; return {id,x:p.x,z:p.z}; })); this.renderer.domElement.style.cursor=''; return; }
+    if(down && Math.hypot(e.clientX-down.x,e.clientY-down.y)<5 && e.target===this.renderer.domElement) this.cb.onPick(down.hit,{shift:down.shift});
+  }
+  onHover(e){ if(this.drag) return; const h=this.pick(e);
+    this.renderer.domElement.style.cursor=h?(this.mode==='select'&&h.kind==='node'?'grab':'pointer'):'';
+    this.cb.onHover&&this.cb.onHover(h,e.clientX,e.clientY); }
+
+  /* ---------- camera ---------- */
+  view(kind){
+    const dir= kind==='top'?new T.Vector3(0,1,.02): kind==='front'?new T.Vector3(0,.42,1): new T.Vector3(.55,.72,.78);
+    if(!this.nodes.size){ const c=new T.Vector3(); this.controls.target.copy(c); this.camera.position.copy(c).addScaledVector(dir.normalize(),34); this.controls.update(); return; }
+    this.fitPrecise(dir,.86);
+  }
+  blocks(){ return this.data.nodes.filter(n=>!isGroupType(n.type)); }
+  framePoints(){ const pts=[];
+    for(const n of this.blocks()){ const o=this.nodes.get(n.id); if(!o) continue;
+      if(o.zone){ const w=(n.w||10)/2,d=(n.d||8)/2; [[-w,-d],[w,-d],[-w,d],[w,d]].forEach(([a,b])=>pts.push(new T.Vector3(n.x+a,0,n.z+b))); pts.push(new T.Vector3(n.x-w+3.6,1.1,n.z+d)); }
+      else { [[-1.2,-1],[1.2,-1],[-1.2,1],[1.2,1]].forEach(([a,b])=>pts.push(new T.Vector3(n.x+a,0,n.z+b))); pts.push(new T.Vector3(n.x-1.8,o.h+1.6,n.z),new T.Vector3(n.x+1.8,o.h+1.6,n.z)); } }
+    for(const [,g] of this.groups){ const b=g.box; pts.push(new T.Vector3(b.x0,0,b.z0),new T.Vector3(b.x1,b.H,b.z1),new T.Vector3(b.x0,b.H,b.z0),new T.Vector3(b.x0,-.9,b.z1+.5),new T.Vector3(b.x0+3.6,-.9,b.z1+.5)); }
+    return pts; }
+  /* Place the camera along dir so every block and label fits inside +-margin of the frame (NDC), centred. */
+  fitPrecise(dir,margin){
+    const pts=this.framePoints(); if(!pts.length) return; const cam=this.camera; dir=dir.clone().normalize();
+    const target=this.center(), v=new T.Vector3();
+    const measure=d=>{ cam.position.copy(target).addScaledVector(dir,d); cam.lookAt(target); cam.updateMatrixWorld(); cam.matrixWorldInverse.copy(cam.matrixWorld).invert();
+      let a=1e9,b=-1e9,c=1e9,e=-1e9; for(const p of pts){ v.copy(p).project(cam); if(v.x<a)a=v.x; if(v.x>b)b=v.x; if(v.y<c)c=v.y; if(v.y>e)e=v.y; } return {a,b,c,e}; };
+    let d=60;
+    for(let it=0;it<4;it++){
+      let lo=2,hi=600; for(let k=0;k<32;k++){ const mid=(lo+hi)/2, m=measure(mid); if(m.b-m.a<=2*margin && m.e-m.c<=2*margin) hi=mid; else lo=mid; }
+      d=hi; const m=measure(d), cx=(m.a+m.b)/2, cy=(m.c+m.e)/2;
+      const hh=d*Math.tan(T.MathUtils.degToRad(cam.fov/2)), hw=hh*cam.aspect;
+      const right=new T.Vector3().setFromMatrixColumn(cam.matrixWorld,0), up=new T.Vector3().setFromMatrixColumn(cam.matrixWorld,1);
+      target.addScaledVector(right,cx*hw).addScaledVector(up,cy*hh);
+    }
+    cam.position.copy(target).addScaledVector(dir,d); this.controls.target.copy(target); this.controls.update();
+  }
+  saveCam(){ this._cam={p:this.camera.position.clone(),t:this.controls.target.clone()}; }
+  restoreCam(){ if(!this._cam) return; this.camera.position.copy(this._cam.p); this.controls.target.copy(this._cam.t); this.controls.update(); this._cam=null; }
+  exportFit(){ const dir=this.camera.position.clone().sub(this.controls.target); this.saveCam(); this.fitPrecise(dir,.9); }
+  center(){ const ns=this.blocks(); if(!ns.length) return new T.Vector3(); const b=new T.Box3(); ns.forEach(n=>{ b.expandByPoint(new T.Vector3(n.x-(n.w||0)/2,0,n.z-(n.d||0)/2)); b.expandByPoint(new T.Vector3(n.x+(n.w||0)/2,0,n.z+(n.d||0)/2)); }); const c=new T.Vector3(); b.getCenter(c); c.y=0; return c; }
+  freeSpot(){ const c=this.controls.target; const taken=this.blocks().filter(n=>!n.w);
+    for(let r=0;r<40;r++){ for(let k=0;k<Math.max(1,r*6);k++){ const a=k/Math.max(1,r*6)*Math.PI*2; const x=Math.round((c.x+Math.cos(a)*r*1.4)*2)/2, z=Math.round((c.z+Math.sin(a)*r*1.4)*2)/2;
+      if(taken.every(n=>Math.hypot(n.x-x,n.z-z)>3)) return {x,z}; } } return {x:c.x,z:c.z}; }
+
+  /* ---------- packets ---------- */
+  packet(curve,rev,color,o){
+    o=o||{}; const sz=(o.small?.1:.16)*(o.scale||1);
+    const m=new T.Mesh(new T.SphereGeometry(sz,16,12),new T.MeshBasicMaterial({color}));
+    const gl=new T.Sprite(new T.SpriteMaterial({map:glowTex(),color,transparent:true,blending:T.AdditiveBlending,depthWrite:false}));
+    gl.material.userData={sharedMap:true}; gl.scale.setScalar(o.small?.7:1.25); m.add(gl);
+    const trail=[]; for(let i=0;i<(o.small?2:4);i++){ const t=new T.Mesh(new T.SphereGeometry(sz*(.75-i*.14),10,8),new T.MeshBasicMaterial({color,transparent:true,opacity:.55-i*.12})); t.visible=false; this.fxLayer.add(t); trail.push(t); }
+    m.visible=false; this.fxLayer.add(m);
+    const dur=Math.max(.45,curve.getLength()/7.5);
+    this.packets.push({m,trail,curve,rev,t:-(o.delay||0),dur,onArrive:o.onArrive});
+  }
+  findEdge(a,b){ const e=this.data.edges.find(e=>e.from===a&&e.to===b)||this.data.edges.find(e=>e.from===b&&e.to===a); if(!e) return null; const o=this.edges.get(e.id); return o?{o,fwd:e.from===a}:null; }
+  /* send one hop of a flow, with packet behaviour depending on the connector kind */
+  spawnHop(h,opts){
+    opts=opts||{}; const color=DIR_COLOR[h.dir]||REQ_COLOR, small=!!opts.small, done=opts.onArrive||null;
+    const E=this.findEdge(h.from,h.to);
+    if(!E){ const c=this.curveBetween(h.from,h.to,0); if(!c){ done&&done(); return; } this.packet(c,false,color,{small,onArrive:done}); return; }
+    const {o,fwd}=E;
+    if(o.kind==='duplex'){
+      this.packet(fwd?o.lanes[0]:o.lanes[1],!fwd,color,{small,onArrive:done});
+      if(h.dir==='req') this.packet(fwd?o.lanes[1]:o.lanes[0],fwd,RES_COLOR,{small:true,scale:.9}); // the other side talks at the same time
+    } else if(o.kind==='multiplex'){
+      o.lanes.forEach((ln,k)=>this.packet(ln,!fwd,color,{small:true,scale:small?1:1.25,delay:k*.12,onArrive:k===o.lanes.length-1?done:null}));
+    } else if(o.kind==='stream'){
+      const n=small?3:4; for(let k=0;k<n;k++) this.packet(o.curve,!fwd,color,{small:true,scale:small?1:1.2,delay:k*.13,onArrive:k===n-1?done:null});
+    } else this.packet(o.curve,!fwd,color,{small,onArrive:done});
+  }
+  pulse(id,color){ const o=this.nodes.get(id); if(!o||o.zone) return;
+    const r=new T.Mesh(new T.RingGeometry(.9,1.1,40),new T.MeshBasicMaterial({color,transparent:true,opacity:.9,side:T.DoubleSide}));
+    r.rotation.x=-Math.PI/2; r.position.set(o.group.position.x,.03,o.group.position.z); this.fxLayer.add(r);
+    this.pulses.push({o,r,t:0}); }
+  playFlow(flow,loop){ this.stopFlow(); const hops=hopsOf(flow,this.data.edges); if(!hops.length) return; this.flowRun={flow,hops,i:0,loop,wait:.25,busy:false}; this.setHighlight(flow); }
+  stopFlow(){ const had=!!this.flowRun||!!this.hl; this.flowRun=null; if(had) this.setHighlight(null); }
+  setLoop(v){ if(this.flowRun) this.flowRun.loop=v; }
+  visualRate(rps){ return rps>0 ? Math.min(5,.35+Math.log10(rps+1)*.9) : .3; }
+
+  tick(){
+    const raw=Math.min(this.clock.getDelta(),.05); const dt=raw*this.speed;
+    this.controls.update();
+    // flow sequencer (one request at a time, with log)
+    const fr=this.flowRun;
+    if(fr && !fr.busy){
+      fr.wait-=dt;
+      if(fr.wait<=0){
+        if(fr.i>=fr.hops.length){
+          if(fr.loop){ fr.i=0; fr.wait=0; this.cb.onHop(-1); }
+          else { this.flowRun=null; this.setHighlight(null); this.cb.onFlowEnd(); }
+        } else {
+          const h=fr.hops[fr.i], idx=fr.i; fr.busy=true; this.cb.onHop(idx);
+          if(idx===0) this.pulse(h.from,DIR_COLOR[h.dir]);
+          this.spawnHop(h,{onArrive:()=>{ if(this.flowRun!==fr) return; this.pulse(h.to,DIR_COLOR[h.dir]); fr.busy=false; fr.i++; fr.wait=fr.i>=fr.hops.length?1.1:.16; }});
+        }
+      }
+    }
+    // live traffic: every flow sends requests at a rate scaled from its RPS
+    if(this.live){
+      const flows=this.data.flows.filter(f=>f.steps&&f.steps.length>1);
+      if(flows.length){ for(const f of flows){ this.liveAcc[f.id]=(this.liveAcc[f.id]||0)+dt*this.visualRate(+f.rps||0);
+          while(this.liveAcc[f.id]>=1){ this.liveAcc[f.id]-=1; if(this.journeys.length<80) this.journeys.push({hops:hopsOf(f,this.data.edges),i:0,busy:false}); } } }
+      else if(this.data.edges.length){ this.liveAcc._=(this.liveAcc._||0)+dt*3; while(this.liveAcc._>=1){ this.liveAcc._-=1; const e=this.data.edges[Math.floor(Math.random()*this.data.edges.length)], k=kindOf(e);
+          this.spawnHop({from:e.from,to:e.to,dir:k==='oneway'?'evt':k==='stream'?'stream':'req',kind:k},{small:true}); } }
+    }
+    for(let i=this.journeys.length-1;i>=0;i--){ const j=this.journeys[i]; if(j.busy) continue;
+      if(j.i>=j.hops.length){ this.journeys.splice(i,1); continue; }
+      j.busy=true; this.spawnHop(j.hops[j.i],{small:true,onArrive:()=>{ j.busy=false; j.i++; }}); }
+    // packets
+    for(let i=this.packets.length-1;i>=0;i--){
+      const p=this.packets[i]; p.t+=dt/p.dur; if(p.t<0) continue;
+      const tt=Math.min(1,p.t), ease=tt<.5?2*tt*tt:1-Math.pow(-2*tt+2,2)/2;
+      const at=u=>p.curve.getPoint(Math.max(0,Math.min(1,p.rev?1-u:u)));
+      p.m.visible=true; p.m.position.copy(at(ease)); p.trail.forEach((t,k)=>{ t.visible=ease-(k+1)*.035>0; t.position.copy(at(ease-(k+1)*.035)); });
+      if(p.t>=1){ this.fxLayer.remove(p.m); disposeTree(p.m); p.trail.forEach(t=>{ this.fxLayer.remove(t); disposeTree(t); }); this.packets.splice(i,1); p.onArrive&&p.onArrive(); }
+    }
+    // pulses
+    for(let i=this.pulses.length-1;i>=0;i--){ const p=this.pulses[i]; p.t+=dt/.55; const k=Math.min(1,p.t);
+      p.o.group.scale.setScalar(1+.14*Math.sin(Math.PI*k)); p.r.scale.setScalar(1+k*1.4); p.r.material.opacity=.9*(1-k);
+      if(p.t>=1){ p.o.group.scale.setScalar(1); this.fxLayer.remove(p.r); disposeTree(p.r); this.pulses.splice(i,1); } }
+    for(const t of this.animTex) t.offset.x-=dt*1.1;
+    const pulseOp=.65+.3*Math.sin(performance.now()/260); this.selRings.forEach(r=>r.material.opacity=pulseOp);
+    this.renderer.render(this.scene,this.camera);
+    // capture
+    const cp=this.capture;
+    if(cp){ cp.elapsed+=raw; cp.acc+=raw;
+      if(cp.acc>=cp.interval || !cp.frames.length){ cp.acc=Math.max(0,cp.acc-cp.interval);
+        // the buffer is already rendered at GIF size, so this is a 1:1 copy (no resampling blur)
+        cp.ctx.drawImage(this.renderer.domElement,0,0); drawStamp(cp.ctx,cp.w,cp.h,cp.title,cp.sub);
+        const img=cp.ctx.getImageData(0,0,cp.w,cp.h);
+        if(!cp.quant) cp.quant=makeQuantizer([img.data],cp.extraColors);
+        const idx=new Uint8Array(cp.w*cp.h); cp.quant.map(img.data,idx); cp.frames.push(idx); }
+      cp.onTick&&cp.onTick(Math.min(1,cp.elapsed/cp.seconds));
+      if(cp.elapsed>=cp.seconds){ this.capture=null; this.restoreRes(); cp.resolve({w:cp.w,h:cp.h,frames:cp.frames,pal:cp.quant.pal,delay:Math.max(2,Math.round(100*cp.interval))}); } }
+  }
+  startCapture({seconds,fps,width,aspect,fit,title,sub,extraColors,onTick}){
+    this.setTargetSize(width,aspect); if(fit) this.exportFit(); const cv=this.renderer.domElement; const w=cv.width, h=cv.height;
+    const c=document.createElement('canvas'); c.width=w; c.height=h;
+    return new Promise(res=>{ this.capture={seconds,interval:1/fps,acc:0,elapsed:0,frames:[],w,h,ctx:c.getContext('2d',{willReadFrequently:true}),title,sub,extraColors,onTick,resolve:res}; });
+  }
+  async snapshot(width,aspect,fit,title,sub){
+    this.setTargetSize(width,aspect); if(fit) this.exportFit(); this.setShadowRes(4096);
+    this.renderer.render(this.scene,this.camera); const cv=this.renderer.domElement;
+    const c=document.createElement('canvas'); c.width=cv.width; c.height=cv.height; const x=c.getContext('2d'); x.drawImage(cv,0,0); drawStamp(x,c.width,c.height,title,sub);
+    this.setShadowRes(2048); this.restoreRes();
+    const blob=await new Promise(r=>c.toBlob(r,'image/png'));
+    return {blob,w:c.width,h:c.height}; }
+}
+
+/* ---------------- GIF encoder (median-cut palette, 6-bit lazy LUT, LZW) ---------------- */
+function makeQuantizer(samples, extras){
+  const hist=new Float64Array(32768), sr=new Float64Array(32768), sg=new Float64Array(32768), sb=new Float64Array(32768);
+  const addPx=(r,g,b,w)=>{ r=Math.max(0,Math.min(255,r|0)); g=Math.max(0,Math.min(255,g|0)); b=Math.max(0,Math.min(255,b|0));
+    const k=((r>>3)<<10)|((g>>3)<<5)|(b>>3); hist[k]+=w; sr[k]+=r*w; sg[k]+=g*w; sb[k]+=b*w; };
+  let total=0; samples.forEach(d=>{ for(let i=0;i<d.length;i+=8){ addPx(d[i],d[i+1],d[i+2],1); total++; } });
+  // reserve palette room for packet colours and their glows, which may not be in the first frame
+  const bg=new T.Color(BG), bgc=[bg.r*255,bg.g*255,bg.b*255], wt=Math.max(50,total*.003);
+  (extras||[]).forEach(hex=>{ const c=new T.Color(hex), base=[c.r*255,c.g*255,c.b*255];
+    [0,.25,.5,.7,.85].forEach(t=>addPx(base[0]+(bgc[0]-base[0])*t,base[1]+(bgc[1]-base[1])*t,base[2]+(bgc[2]-base[2])*t,wt));
+    [.35,.7].forEach(t=>addPx(base[0]+(255-base[0])*t,base[1]+(255-base[1])*t,base[2]+(255-base[2])*t,wt)); });
+  const cols=[]; for(let c=0;c<32768;c++) if(hist[c]) cols.push(c);
+  const ch=(c,k)=>k===0?(c>>10)&31:k===1?(c>>5)&31:c&31;
+  const stat=b=>{ const mn=[31,31,31],mx=[0,0,0]; let n=0; for(const c of b.cols){ for(let k=0;k<3;k++){ const v=ch(c,k); if(v<mn[k])mn[k]=v; if(v>mx[k])mx[k]=v; } n+=hist[c]; }
+    const rg=[mx[0]-mn[0],mx[1]-mn[1],mx[2]-mn[2]], m=Math.max(...rg); b.k=rg.indexOf(m); b.score=Math.sqrt(n)*(m+1); b.n=n; return b; };
+  const boxes=[stat({cols})];
+  while(boxes.length<256){
+    let bi=-1,bs=-1; boxes.forEach((b,i)=>{ if(b.cols.length>1&&b.score>bs){bs=b.score;bi=i;} }); if(bi<0) break;
+    const b=boxes[bi]; b.cols.sort((x,y)=>ch(x,b.k)-ch(y,b.k));
+    let acc=0,cut=1; for(let i=0;i<b.cols.length;i++){ acc+=hist[b.cols[i]]; if(acc>=b.n/2){ cut=Math.min(b.cols.length-1,Math.max(1,i+1)); break; } }
+    boxes.splice(bi,1,stat({cols:b.cols.slice(0,cut)}),stat({cols:b.cols.slice(cut)}));
+  }
+  const pal=new Uint8Array(768), P=boxes.length, pr=new Float32Array(P), pg=new Float32Array(P), pb=new Float32Array(P);
+  boxes.forEach((b,i)=>{ let r=0,g=0,bl=0,n=0; for(const c of b.cols){ r+=sr[c]; g+=sg[c]; bl+=sb[c]; n+=hist[c]; } n=n||1;
+    pr[i]=r/n; pg[i]=g/n; pb[i]=bl/n; pal[i*3]=Math.round(pr[i]); pal[i*3+1]=Math.round(pg[i]); pal[i*3+2]=Math.round(pb[i]); });
+  const lut=new Int16Array(262144).fill(-1);
+  const nearest=(r,g,b)=>{ let best=0,bd=1e12; for(let i=0;i<P;i++){ const dr=r-pr[i],dg=g-pg[i],db=b-pb[i]; const d=dr*dr*.3+dg*dg*.59+db*db*.11; if(d<bd){bd=d;best=i;} } return best; };
+  return { pal, map(d,out){ for(let i=0,p=0;p<out.length;i+=4,p++){ const k=((d[i]>>2)<<12)|((d[i+1]>>2)<<6)|(d[i+2]>>2); let v=lut[k]; if(v<0){ v=nearest((d[i]&252)+2,(d[i+1]&252)+2,(d[i+2]&252)+2); lut[k]=v; } out[p]=v; } } };
+}
+function lzw(idx,out){
+  const MIN=8, CLEAR=256, EOI=257; let size=9, next=258; const dict=new Map();
+  let cur=0,bits=0; const bytes=[];
+  const emit=code=>{ cur|=code<<bits; bits+=size; while(bits>=8){ bytes.push(cur&255); cur>>>=8; bits-=8; } };
+  emit(CLEAR); let prefix=idx[0];
+  for(let i=1;i<idx.length;i++){ const k=idx[i]; const key=prefix*256+k; const v=dict.get(key);
+    if(v!==undefined){ prefix=v; continue; }
+    emit(prefix);
+    if(next===4096){ emit(CLEAR); dict.clear(); next=258; size=9; }
+    else { if(next>=(1<<size)) size++; dict.set(key,next++); }
+    prefix=k; }
+  emit(prefix); emit(EOI); if(bits>0) bytes.push(cur&255);
+  const res=new Uint8Array(out.length+1+bytes.length+Math.ceil(bytes.length/255)+1); let o=0;
+  for(const b of out) res[o++]=b; res[o++]=MIN;
+  for(let i=0;i<bytes.length;i+=255){ const n=Math.min(255,bytes.length-i); res[o++]=n; for(let j=0;j<n;j++) res[o++]=bytes[i+j]; } res[o++]=0;
+  return res.subarray(0,o);
+}
+async function encodeGIF({w,h,frames,pal,delay},onProgress){
+  const parts=[]; const head=[];
+  for(const c of 'GIF89a') head.push(c.charCodeAt(0));
+  head.push(w&255,w>>8,h&255,h>>8,0xF7,0,0); for(let i=0;i<768;i++) head.push(pal[i]);
+  head.push(0x21,0xFF,0x0B); for(const c of 'NETSCAPE2.0') head.push(c.charCodeAt(0)); head.push(3,1,0,0,0);
+  parts.push(new Uint8Array(head));
+  for(let f=0;f<frames.length;f++){
+    const pre=[0x21,0xF9,4,0x04,delay&255,delay>>8,0,0, 0x2C,0,0,0,0,w&255,w>>8,h&255,h>>8,0];
+    parts.push(lzw(frames[f],pre)); frames[f]=null;
+    onProgress((f+1)/frames.length); await new Promise(r=>setTimeout(r,0));
+  }
+  parts.push(new Uint8Array([0x3B]));
+  return new Blob(parts,{type:'image/gif'});
+}
+
+/* ---------------- zip writer (stored, no compression) ---------------- */
+const CRC_T=(()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=c&1?0xEDB88320^(c>>>1):c>>>1; t[n]=c>>>0; } return t; })();
+function crc32(u){ let c=0xFFFFFFFF; for(let i=0;i<u.length;i++) c=CRC_T[(c^u[i])&255]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
+function makeZip(files){
+  const enc=new TextEncoder(), parts=[], central=[]; let off=0;
+  const d=new Date(), time=(d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1), date=((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate();
+  for(const f of files){
+    const name=enc.encode(f.name), data=f.data, crc=crc32(data);
+    const lh=new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0x0800,true); lh.setUint16(8,0,true);
+    lh.setUint16(10,time,true); lh.setUint16(12,date,true); lh.setUint32(14,crc,true); lh.setUint32(18,data.length,true); lh.setUint32(22,data.length,true);
+    lh.setUint16(26,name.length,true); lh.setUint16(28,0,true);
+    parts.push(new Uint8Array(lh.buffer),name,data);
+    const ch=new DataView(new ArrayBuffer(46));
+    ch.setUint32(0,0x02014b50,true); ch.setUint16(4,20,true); ch.setUint16(6,20,true); ch.setUint16(8,0x0800,true); ch.setUint16(10,0,true);
+    ch.setUint16(12,time,true); ch.setUint16(14,date,true); ch.setUint32(16,crc,true); ch.setUint32(20,data.length,true); ch.setUint32(24,data.length,true);
+    ch.setUint16(28,name.length,true); ch.setUint32(42,off,true);
+    central.push(new Uint8Array(ch.buffer),name);
+    off+=30+name.length+data.length;
+  }
+  const cdSize=central.reduce((s,a)=>s+a.length,0);
+  const end=new DataView(new ArrayBuffer(22));
+  end.setUint32(0,0x06054b50,true); end.setUint16(8,files.length,true); end.setUint16(10,files.length,true); end.setUint32(12,cdSize,true); end.setUint32(16,off,true);
+  return new Blob([...parts,...central,new Uint8Array(end.buffer)],{type:'application/zip'});
+}
+const PROJECT_FILES=['index.html','README.md','SKILL.md','Dockerfile','nginx.conf','docker-compose.yml','.dockerignore','docs/USER_GUIDE.md','docs/ARCHITECTURE.md','docs/FILE_FORMAT.md',
+  'examples/checkout-microservices.json','examples/single-server.json','examples/serverless-aws.json','examples/iot-azure.json'];
+function selfHTML(){ const root=document.documentElement.cloneNode(true); const r=root.querySelector('#root'); if(r) r.innerHTML=''; return '<!doctype html>\n'+root.outerHTML; }
+
+/* ---------------- saving ---------------- */
+let dlP=null;
+function getDownloads(){ if(!window.claude||typeof window.claude.use!=='function') return Promise.resolve(undefined); if(!dlP) dlP=window.claude.use('downloads'); return dlP; }
+async function saveFile(name,blob){
+  const dl=await getDownloads();
+  if(dl===undefined){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); return 'saved'; }
+  if(dl===null) throw {code:'unavailable'};
+  const r=await dl.save({filename:name,data:blob}); return r.status;
+}
+function saveError(e){ const c=e&&e.code; return c==='declined'?'Save cancelled.':c==='rate_limited'?'A save prompt is already open. Try again in a moment.':c==='too_large'?'That file is too large. Try a shorter GIF.':'Saving files isn\'t available in this view.'; }
+const slug=s=>(s||'architecture').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'architecture';
+
+/* ---------------- persistence ---------------- */
+const LS='archflow3d.v1';
+function loadLocal(){ try{ const s=localStorage.getItem(LS); if(!s) return null; const d=JSON.parse(s); if(d&&Array.isArray(d.nodes)&&Array.isArray(d.edges)) return d; }catch(e){} return null; }
+function saveLocal(d){ try{ localStorage.setItem(LS,JSON.stringify(d)); }catch(e){} }
+
+/* ---------------- UI ---------------- */
+function Palette({onAdd}){
+  const [q,setQ]=useState('');
+  const ql=q.trim().toLowerCase();
+  return html`<div>
+    <div className="sec"><h3>Blocks</h3>
+      <input id="palette-search" className="search" type="text" placeholder="Search blocks, e.g. queue, S3" value=${q} onInput=${e=>setQ(e.target.value)} />
+      <p className="muted" style=${{marginTop:8}}>Click a block to drop it on the stage, then drag it into place.</p>
+      <div className="note"><b>Group blocks into a server</b>Shift-click two or more blocks on the stage, then press <kbd>G</kbd> or use the Inspector to put them in a server, VM, pod, zone or region.</div>
+    </div>
+    ${SECTIONS.map((sec,si)=>{
+      const items=CATALOG.filter(c=>c.section===sec&&(!ql||(c.label+' '+sec+' '+(c.provider||'')+' '+c.type+' '+(DESC[c.type]||'')).toLowerCase().includes(ql)));
+      if(!items.length) return null;
+      return html`<details className="cat" key=${sec} open=${si<6||!!ql}>
+        <summary>${sec}<span className="n">${items.length}</span></summary>
+        <div className="items">
+          ${items.map(c=>html`<button key=${c.type} className="item" style=${{'--c':CAT[c.cat].color}} onClick=${()=>onAdd(c.type)} title=${c.label+': '+(DESC[c.type]||'')}>
+            <span className="row"><span className="sw"></span><span className="nm">${c.label}</span></span>
+            <span className="pv">${c.provider||(c.shape==='zone'?'ZONE':c.cat.toUpperCase())}</span>
+          </button>`)}
+        </div></details>`;
+    })}
+  </div>`;
+}
+
+function NumField({id,label,value,onChange,placeholder,suffix}){
+  return html`<div className="field"><label htmlFor=${id}>${label}</label>
+    <div className="numrow"><input id=${id} type="number" min="0" step="any" placeholder=${placeholder||''} value=${value==null?'':value}
+      onInput=${e=>{ const v=e.target.value; onChange(v===''?undefined:Math.max(0,+v)); }} />${suffix&&html`<span>${suffix}</span>`}</div></div>`;
+}
+function UtilBar({node,load}){
+  const c=capOf(node), u=utilOf(node,load);
+  if(!load&&!c) return html`<p className="muted">No traffic yet. Give a flow a request rate to see load here.</p>`;
+  return html`<div className="util-wrap">
+    <div className="util-top"><span><b>${fmtRps(load)}</b> req/s</span>${c?html`<span style=${{color:utilColor(u)}}>${Math.round(u*100)}% of ${fmtRps(c)}</span>`:html`<span className="muted">no capacity set</span>`}</div>
+    ${c?html`<div className="util"><div style=${{width:Math.min(100,u*100)+'%',background:utilColor(u)}}></div></div>`:null}
+    ${u!=null&&u>=1?html`<p className="warn">Over capacity. Add replicas or raise capacity.</p>`:u!=null&&u>=.9?html`<p className="warn">Close to capacity.</p>`:null}
+  </div>`;
+}
+function MultiPanel({diagram,ids,makeGroup,clear}){
+  const [kind,setKind]=useState('grp-server');
+  const n=diagram.nodes.filter(x=>isGroupType(x.type)&&x.type===kind).length+1;
+  const def=(meta(kind).label.split(' ')[0].toLowerCase())+'-'+String(n).padStart(2,'0');
+  const [name,setName]=useState('');
+  const names=ids.map(id=>(diagram.nodes.find(x=>x.id===id)||{}).name).filter(Boolean);
+  return html`<div className="sec"><h3>${ids.length} blocks selected</h3>
+    <p className="muted" style=${{marginBottom:10}}>${names.join(', ')}</p>
+    <div className="field"><label htmlFor="group-kind">Put them in</label>
+      <select id="group-kind" value=${kind} onChange=${e=>setKind(e.target.value)}>${GROUP_KINDS.map(g=>html`<option key=${g.type} value=${g.type}>${g.label}</option>`)}</select></div>
+    <div className="field"><label htmlFor="group-name">Name</label><input id="group-name" type="text" placeholder=${def} value=${name} onInput=${e=>setName(e.target.value)} /></div>
+    <div className="grp"><button className="btn sm primary" onClick=${()=>makeGroup(kind,name||def)}>Group</button><button className="btn sm ghost" onClick=${clear}>Clear selection</button></div>
+  </div>`;
+}
+
+function Inspector({diagram,sel,loads,update,remove,startConnect,makeGroup,ungroup,setSel}){
+  if(!sel) return html`<div className="sec"><h3>Inspector</h3><p className="muted">Select a block, group or connection to edit it. Shift-click several blocks to group them. Drag empty space to orbit, scroll to zoom, right-drag to pan.</p></div>`;
+  if(sel.kind==='multi') return html`<${MultiPanel} key=${sel.ids.join(',')} diagram=${diagram} ids=${sel.ids} makeGroup=${makeGroup} clear=${()=>setSel(null)} />`;
+  const nameOf=id=>(diagram.nodes.find(n=>n.id===id)||{}).name||'?';
+  if(sel.kind==='node'){
+    const n=diagram.nodes.find(n=>n.id===sel.id); if(!n) return null; const m=meta(n.type), load=loads.node[n.id]||0;
+    const descField=html`<div className="field"><label htmlFor="node-desc">Description</label>
+      <textarea id="node-desc" rows="3" placeholder=${DESC[n.type]||'What does this block do?'} value=${n.desc||''} onInput=${e=>update('node',n.id,{desc:e.target.value})}></textarea></div>`;
+    const nameField=html`<div className="field"><label htmlFor="node-name">Name</label><input id="node-name" type="text" value=${n.name} onInput=${e=>update('node',n.id,{name:e.target.value})} /></div>`;
+    if(m.shape==='group'){
+      const mem=diagram.nodes.filter(x=>x.group===n.id);
+      return html`<div className="sec"><h3>Group <span className="chip">${m.label}</span></h3>
+        ${nameField}
+        <div className="field"><label htmlFor="group-type">Type</label>
+          <select id="group-type" value=${n.type} onChange=${e=>update('node',n.id,{type:e.target.value})}>${GROUP_KINDS.map(g=>html`<option key=${g.type} value=${g.type}>${g.label}</option>`)}</select></div>
+        ${descField}
+        <div className="field"><label>Contains ${mem.length} block${mem.length===1?'':'s'}</label>
+          <div className="members">${mem.map(x=>html`<button key=${x.id} className="chip link" onClick=${()=>setSel({kind:'node',id:x.id})}>${x.name}</button>`)}</div></div>
+        <div className="kv">${fmtRps(load)} req/s pass through this ${m.label.toLowerCase()}</div>
+        <div className="grp"><button className="btn sm" onClick=${()=>ungroup(n.id)}>Ungroup</button></div>
+        <p className="muted" style=${{marginTop:8}}>Drag the group's floor to move everything inside it.</p></div>`;
+    }
+    const ins=diagram.edges.filter(e=>e.to===n.id).length, outs=diagram.edges.filter(e=>e.from===n.id).length;
+    const grp=n.group&&diagram.nodes.find(x=>x.id===n.group);
+    return html`<div className="sec"><h3>Block <span className="chip">${m.provider||m.cat}</span></h3>
+      <div className="kv"><span className="sw" style=${{background:colorOf(n.type)}}></span>${m.label} · ${ins} in · ${outs} out</div>
+      ${nameField}${descField}
+      ${m.shape==='zone'?html`<div>
+        <div className="field"><label htmlFor="zone-w">Width ${n.w}</label><input id="zone-w" type="range" min="4" max="40" step="0.5" value=${n.w} onInput=${e=>update('node',n.id,{w:+e.target.value})} /></div>
+        <div className="field"><label htmlFor="zone-d">Depth ${n.d}</label><input id="zone-d" type="range" min="4" max="40" step="0.5" value=${n.d} onInput=${e=>update('node',n.id,{d:+e.target.value})} /></div></div>`
+      :html`<div>
+        <div className="row2f">
+          <${NumField} id="node-cap" label="Capacity per instance" suffix="req/s" placeholder="e.g. 500" value=${n.capacity} onChange=${v=>update('node',n.id,{capacity:v})} />
+          <${NumField} id="node-rep" label="Instances" placeholder="1" value=${n.replicas} onChange=${v=>update('node',n.id,{replicas:v?Math.round(v):undefined})} />
+        </div>
+        <${UtilBar} node=${n} load=${load} />
+        ${grp?html`<div className="kv" style=${{marginTop:10}}>In ${meta(grp.type).label.toLowerCase()} <button className="chip link" onClick=${()=>setSel({kind:'node',id:grp.id})}>${grp.name}</button>
+          <button className="chip link" onClick=${()=>update('node',n.id,{group:undefined})}>Remove from group</button></div>`:null}
+      </div>`}
+      <div className="grp" style=${{marginTop:10}}>
+        ${m.shape!=='zone'&&html`<button className="btn sm" onClick=${()=>startConnect(n.id)}>Connect from here</button>`}
+        <button className="btn sm danger" onClick=${()=>remove(sel)}>Delete</button>
+      </div></div>`;
+  }
+  const e=diagram.edges.find(e=>e.id===sel.id); if(!e) return null; const k=kindOf(e), load=loads.edge[e.id]||0;
+  return html`<div className="sec"><h3>Connection</h3>
+    <div className="kv">${nameOf(e.from)} → ${nameOf(e.to)}${load?html` · <b style=${{color:'var(--text)'}}>${fmtRps(load)} req/s</b>`:''}</div>
+    <div className="field"><label htmlFor="edge-kind">Connector type</label>
+      <select id="edge-kind" value=${k} onChange=${ev=>update('edge',e.id,{kind:ev.target.value})}>${CONNECTOR_KEYS.map(c=>html`<option key=${c} value=${c}>${CONNECTORS[c].label}</option>`)}</select>
+      <p className="muted kind-desc">${CONNECTORS[k].desc}</p></div>
+    <div className="field"><label htmlFor="edge-label">Protocol / label</label>
+      <input id="edge-label" type="text" list="protos" value=${e.label||''} onInput=${ev=>update('edge',e.id,{label:ev.target.value})} />
+      <datalist id="protos">${PROTOCOLS.map(p=>html`<option key=${p} value=${p}></option>`)}</datalist></div>
+    <div className="grp"><button className="btn sm" onClick=${()=>update('edge',e.id,{from:e.to,to:e.from})}>Reverse direction</button>
+      <button className="btn sm danger" onClick=${()=>remove(sel)}>Delete</button></div></div>`;
+}
+
+const TOUR=[
+  {title:'Welcome to ArchFlow 3D',body:'Design a system in 3D, wire up its connections, and watch requests travel through it. This tour takes about a minute.'},
+  {sel:'[data-tour=palette]',title:'Block palette',body:'Over 100 blocks: clients, network, compute, services, data, messaging, AWS, Google Cloud, Azure and ops tools. Search, then click a block to drop it on the stage.'},
+  {sel:'[data-tour=stage]',title:'3D stage',body:'Drag a block to move it; it snaps to a half-unit grid. Drag empty space to orbit, right-drag or two-finger drag to pan, and scroll or pinch to zoom.'},
+  {sel:'[data-tour=tools]',title:'Tools, groups and labels',body:'Select moves blocks; shift-click several and press G to put them in one server, VM or pod. Connect draws links, and you pick the connector type first. Names / Details toggles block descriptions on the labels.'},
+  {sel:'[data-tour=inspector]',title:'Inspector',body:'Edit a block\'s name, description, capacity and instances, and see its load. For a connection, choose its type: request/response, one-way, two-way, half or full duplex, multiplexed or streaming.'},
+  {sel:'[data-tour=flows]',title:'Flows and traffic',body:'Each flow is a request path with a rate in requests per second. Play traces one request: amber requests, cyan responses, violet events, green streams. Live traffic runs every flow at once, scaled to its rate.'},
+  {sel:'[data-tour=log]',title:'Hop log',body:'While a flow plays, every hop is listed with its protocol and payload, and the current hop is highlighted.'},
+  {sel:'[data-tour=export]',title:'Export and download',body:'Save a sharp PNG up to 8K, record an animated GIF up to 1600 px wide, save the design as JSON, or download the whole project as a zip with docs and a skill file.'},
+  {sel:'[data-tour=help]',title:'Help any time',body:'Help lists shortcuts and tips. The Tour button replays this walkthrough.'},
+];
+function Tour({onClose}){
+  const [i,setI]=useState(0); const [rect,setRect]=useState(null); const [vp,setVp]=useState({w:innerWidth,h:innerHeight});
+  const step=TOUR[i], last=i===TOUR.length-1;
+  useEffect(()=>{
+    let el=step.sel?document.querySelector(step.sel):null; if(el&&!el.getClientRects().length) el=null;
+    const measure=()=>{ setVp({w:innerWidth,h:innerHeight}); setRect(el?el.getBoundingClientRect():null); };
+    if(el&&innerWidth<=980) el.scrollIntoView({block:'center',behavior:'smooth'});
+    measure(); const t=setTimeout(measure,380);
+    addEventListener('resize',measure); addEventListener('scroll',measure,true);
+    return ()=>{ clearTimeout(t); removeEventListener('resize',measure); removeEventListener('scroll',measure,true); };
+  },[i]);
+  useEffect(()=>{ const k=e=>{ if(e.key==='Escape') onClose(); if(e.key==='ArrowRight') setI(v=>Math.min(TOUR.length-1,v+1)); if(e.key==='ArrowLeft') setI(v=>Math.max(0,v-1)); };
+    addEventListener('keydown',k); return ()=>removeEventListener('keydown',k); },[]);
+  const CW=Math.min(320,vp.w-32), CH=210, G=14; let pos;
+  if(!rect) pos={left:(vp.w-CW)/2,top:Math.max(16,(vp.h-CH)/2)};
+  else {
+    const r=rect, cands=[
+      {left:r.right+G,top:r.top+r.height/2-CH/2,ok:r.right+G+CW<vp.w-12},
+      {left:r.left-G-CW,top:r.top+r.height/2-CH/2,ok:r.left-G-CW>12},
+      {left:r.left+r.width/2-CW/2,top:r.bottom+G,ok:r.bottom+G+CH<vp.h-12},
+      {left:r.left+r.width/2-CW/2,top:r.top-G-CH,ok:r.top-G-CH>12},
+      {left:r.left+16,top:r.bottom-CH-16,ok:true}];
+    pos=cands.find(c=>c.ok);
+  }
+  pos={left:Math.max(16,Math.min(vp.w-CW-16,pos.left)),top:Math.max(16,Math.min(vp.h-CH-16,pos.top))};
+  return html`<div>
+    <div className="tour-catch" onClick=${e=>e.stopPropagation()}></div>
+    ${rect?html`<div className="tour-spot" style=${{left:rect.left-6,top:rect.top-6,width:rect.width+12,height:rect.height+12}}></div>`:html`<div className="tour-dim"></div>`}
+    <div className="tour-card" role="dialog" aria-label="Guided tour" style=${{left:pos.left,top:pos.top,width:CW}}>
+      <div className="step">STEP ${i+1} OF ${TOUR.length}</div>
+      <h4>${step.title}</h4><p>${step.body}</p>
+      <div className="nav">
+        <div className="dots">${TOUR.map((_,k)=>html`<i key=${k} className=${k===i?'on':''}></i>`)}</div>
+        ${i>0?html`<button className="btn sm" onClick=${()=>setI(i-1)}>Back</button>`:html`<button className="btn sm ghost" onClick=${onClose}>Skip</button>`}
+        <button className="btn sm primary" onClick=${()=>last?onClose():setI(i+1)}>${last?'Finish':'Next'}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function HelpModal({onClose,onTour}){
+  useEffect(()=>{ const k=e=>{ if(e.key==='Escape') onClose(); }; addEventListener('keydown',k); return ()=>removeEventListener('keydown',k); },[]);
+  return html`<div className="modal-bg" onClick=${onClose}><div className="modal" role="dialog" aria-label="Help" onClick=${e=>e.stopPropagation()}>
+    <div style=${{display:'flex',justifyContent:'space-between',alignItems:'start',gap:12}}>
+      <div><h2>Using ArchFlow 3D</h2><p style=${{margin:0}}>Design, connect, simulate and export software architecture diagrams.</p></div>
+      <button className="btn sm" onClick=${onClose}>Close</button></div>
+    <h5>Mouse and touch</h5>
+    <div className="keys">
+      <span><kbd>Drag block</kbd></span><span>Move it (snaps to a 0.5 grid)</span>
+      <span><kbd>Drag empty space</kbd></span><span>Orbit the camera</span>
+      <span><kbd>Right-drag</kbd> / two fingers</span><span>Pan</span>
+      <span><kbd>Scroll</kbd> / pinch</span><span>Zoom</span>
+      <span><kbd>Click</kbd></span><span>Select a block, group or connection</span>
+      <span><kbd>Shift</kbd> + click</span><span>Add or remove a block from the selection</span>
+      <span><kbd>Hover</kbd></span><span>Show a block's description and load</span>
+    </div>
+    <h5>Keyboard</h5>
+    <div className="keys">
+      <span><kbd>V</kbd></span><span>Select tool</span>
+      <span><kbd>C</kbd></span><span>Connect tool: click source, then target. Keeps chaining from the last target.</span>
+      <span><kbd>R</kbd></span><span>Record a new flow</span>
+      <span><kbd>F</kbd></span><span>Fit the whole design in view</span>
+      <span><kbd>G</kbd></span><span>Group the selected blocks into a server</span>
+      <span><kbd>L</kbd></span><span>Toggle descriptions on labels</span>
+      <span><kbd>Delete</kbd></span><span>Delete the selected block or connection</span>
+      <span><kbd>Esc</kbd></span><span>Back to Select and clear selection</span>
+      <span><kbd>?</kbd></span><span>Open this help</span>
+    </div>
+    <h5>Connector types</h5>
+    <div className="keys">${CONNECTOR_KEYS.map(k=>html`<span key=${k}><b>${CONNECTORS[k].label}</b></span><span key=${k+'d'}>${CONNECTORS[k].desc}</span>`)}</div>
+    <p>On the stage: one-way links are dashed, two-way and half duplex have arrows at both ends (half duplex adds a disc in the middle), full duplex shows two lanes, multiplexed shows three braided lanes, and streaming shows a moving pulse.</p>
+    <h5>Packet colours</h5>
+    <div className="keys"><span><i className="dotc" style=${{background:'var(--req)'}}></i> Amber</span><span>Request</span><span><i className="dotc" style=${{background:'var(--res)'}}></i> Cyan</span><span>Response</span>
+      <span><i className="dotc" style=${{background:'var(--evt)'}}></i> Violet</span><span>One-way event (no reply)</span><span><i className="dotc" style=${{background:'var(--str)'}}></i> Green</span><span>Stream message</span></div>
+    <p>A flow's own colour only highlights its path while it plays.</p>
+    <h5>Requests per second and capacity</h5>
+    <ul><li>Give each flow a rate in its card. Every block and connection on its path adds that rate to its load.</li>
+      <li>Set a block's capacity per instance and number of instances. Its label turns amber at 70% and red at 90%, with a red ring when it is close to or over capacity.</li>
+      <li>Live traffic sends requests from every flow at once, more often for higher rates.</li></ul>
+    <h5>Groups</h5>
+    <ul><li>Shift-click two or more blocks, then press <kbd>G</kbd> or choose a group type in the Inspector: server/host, VM, Docker host, Kubernetes pod, cluster, availability zone or region.</li>
+      <li>The box resizes itself around its blocks. Drag its floor to move everything inside.</li>
+      <li>Select the group to rename it, change its type, add a description, or ungroup.</li></ul>
+    <h5>Simulating flows</h5>
+    <ul><li>Record flow, then click blocks in the order a request travels, starting at the client.</li>
+      <li>Type the request for each hop, for example <kbd>POST /orders</kbd>. Responses travel back along the same path.</li>
+      <li>Missing connections along the path are created for you when you save.</li></ul>
+    <h5>Getting sharp exports</h5>
+    <ul><li>PNG renders the scene again at the chosen width (up to 8K, limited by your GPU), so labels and edges stay crisp.</li>
+      <li>GIF frames are rendered at the GIF's own size, not scaled down from the screen. 1280 px at 12 fps is a good balance; 1600 px gives the sharpest result but larger files.</li>
+      <li>Frame the shot first: the export uses the current camera view and stage shape. Use Fit, then zoom in a little.</li></ul>
+    <h5>Project files</h5>
+    <p>Export → Download project gives you a zip with the app (<kbd>index.html</kbd>, open it in any modern browser), user and architecture docs, a SKILL.md for extending the app with Claude, example designs, and your current design as JSON.</p>
+    <div className="grp" style=${{marginTop:14}}><button className="btn" onClick=${()=>{ onClose(); onTour(); }}>Start the tour</button></div>
+  </div></div>`;
+}
+
+function ExportMenu(p){
+  const ref=useRef(null);
+  useEffect(()=>{ if(!p.open) return; const h=e=>{ if(ref.current&&!ref.current.contains(e.target)) p.setOpen(false); }; document.addEventListener('pointerdown',h); return ()=>document.removeEventListener('pointerdown',h); },[p.open]);
+  const ar=({'16:9':16/9,'4:3':4/3,'1:1':1}[p.frame])||p.aspect||1.6, gh=Math.round(p.gifW/ar), frames=Math.round(p.gifSecs*p.gifFps);
+  return html`<div className="menu-wrap" ref=${ref} data-tour="export">
+    <button className="btn primary" aria-expanded=${p.open} onClick=${()=>p.setOpen(!p.open)}>Export ▾</button>
+    ${p.open&&html`<div className="pop">
+      <div className="blk"><h4>Frame <small>applies to PNG and GIF</small></h4>
+        <select id="frame" aria-label="Export frame" value=${p.frame} onChange=${e=>p.setFrame(e.target.value)}>
+          <option value="16:9">16:9 · slides and video</option><option value="4:3">4:3 · documents</option>
+          <option value="1:1">1:1 · square posts</option><option value="stage">Match the stage</option></select>
+        <label className="meta" style=${{display:'flex',gap:8,alignItems:'center',color:'var(--text)',fontFamily:'var(--f-body)',fontSize:12.5}}>
+          <input id="fit-frame" type="checkbox" checked=${p.fit} onChange=${e=>p.setFit(e.target.checked)} style=${{accentColor:'var(--req)'}} />
+          Fit the whole design to the frame (keeps your viewing angle)</label></div>
+      <div className="blk"><h4>PNG image <small>still frame</small></h4>
+        <select id="png-w" aria-label="PNG width" value=${p.pngW} onChange=${e=>p.setPngW(+e.target.value)}>
+          <option value="1920">Full HD · 1920 px wide</option><option value="2560">QHD · 2560 px</option>
+          <option value="3840">4K · 3840 px</option><option value="7680">8K · 7680 px (if GPU allows)</option></select>
+        <div className="meta">≈ ${p.pngW} × ${Math.round(p.pngW/ar)} px</div>
+        <button className="btn" disabled=${!!p.busy} onClick=${p.onPNG}>Save PNG</button></div>
+      <div className="blk"><h4>Animated GIF <small>records the live flow</small></h4>
+        <div className="row2">
+          <select id="gif-w" aria-label="GIF width" value=${p.gifW} onChange=${e=>p.setGifW(+e.target.value)}>
+            <option value="960">960 px</option><option value="1280">1280 px</option><option value="1600">1600 px</option></select>
+          <select id="gif-secs" aria-label="GIF length" value=${p.gifSecs} onChange=${e=>p.setGifSecs(+e.target.value)}>
+            <option value="3">3 seconds</option><option value="5">5 seconds</option><option value="8">8 seconds</option><option value="12">12 seconds</option></select>
+        </div>
+        <select id="gif-fps" aria-label="GIF frame rate" value=${p.gifFps} onChange=${e=>p.setGifFps(+e.target.value)}>
+          <option value="10">10 fps · smaller file</option><option value="12">12 fps · balanced</option><option value="16">16 fps · smoother</option></select>
+        <div className="meta">${p.gifW} × ${gh} px · ${frames} frames</div>
+        <button className="btn primary" disabled=${!!p.busy} onClick=${p.onGIF}>Record GIF</button></div>
+      <div className="blk"><h4>Design and project</h4>
+        <div className="row2"><button className="btn" onClick=${p.onJSON}>Save JSON</button><button className="btn" disabled=${!!p.busy} onClick=${p.onZip}>Download project</button></div>
+        <div className="meta">Project zip: app, docs, SKILL.md, examples, your design</div></div>
+    </div>`}
+  </div>`;
+}
+
+/* drop groups with no members left */
+function cleanGroups(d){ const used=new Set(d.nodes.filter(n=>n.group).map(n=>n.group));
+  const groupIds=new Set(d.nodes.filter(n=>isGroupType(n.type)).map(n=>n.id));
+  return {...d,nodes:d.nodes.filter(n=>!isGroupType(n.type)||used.has(n.id)).map(n=>n.group&&!groupIds.has(n.group)?{...n,group:undefined}:n)}; }
+const HOP_ARROW={req:'→',res:'←',evt:'⇢',stream:'⇉'};
+const HOP_WORD={req:'request',res:'response',evt:'event, no reply',stream:'stream'};
+
+function App(){
+  const hostRef=useRef(null), sceneRef=useRef(null), fileRef=useRef(null), tipRef=useRef(null);
+  const [diagram,setDiagram]=useState(()=>loadLocal()||TEMPLATES.ecommerce());
+  const [sel,setSel]=useState(null);
+  const [mode,setMode]=useState('select');
+  const [connectFrom,setConnectFrom]=useState(null);
+  const [connectKind,setConnectKind]=useState('request');
+  const [rec,setRec]=useState(null); // {name, steps:[{node,note,ret}]}
+  const [playing,setPlaying]=useState(null);
+  const [hop,setHop]=useState(-1);
+  const [speed,setSpeed]=useState(1);
+  const [loop,setLoop]=useState(true);
+  const [live,setLive]=useState(false);
+  const [labelMode,setLabelMode]=useState('basic');
+  const [gifSecs,setGifSecs]=useState(5);
+  const [gifW,setGifW]=useState(1280);
+  const [gifFps,setGifFps]=useState(12);
+  const [pngW,setPngW]=useState(3840);
+  const [menuOpen,setMenuOpen]=useState(false);
+  const [tour,setTour]=useState(false);
+  const [help,setHelp]=useState(false);
+  const [aspect,setAspect]=useState(1.6);
+  const [frame,setFrame]=useState('16:9');
+  const [fitExport,setFitExport]=useState(true);
+  const [busy,setBusy]=useState(null); // {label, p}
+  const [toast,setToast]=useState('');
+  const S=useRef({}); S.current={mode,connectFrom,connectKind,rec,diagram,playing,loop,sel};
+  const loads=useMemo(()=>computeLoads(diagram),[diagram]);
+
+  const say=useCallback(t=>{ setToast(t); clearTimeout(say.t); say.t=setTimeout(()=>setToast(''),3000); },[]);
+
+  // scene lifecycle
+  useEffect(()=>{
+    const sc=new ArchScene(hostRef.current,{
+      onPick:(hit,mods)=>handlePick(hit,mods||{}),
+      onMoveMany:list=>{ const m=new Map(list.map(p=>[p.id,p])); setDiagram(d=>({...d,nodes:d.nodes.map(n=>m.has(n.id)?{...n,x:m.get(n.id).x,z:m.get(n.id).z}:n)})); },
+      onHop:i=>setHop(i),
+      onFlowEnd:()=>{ setPlaying(null); setHop(-1); },
+      onHover:(h,x,y)=>showTip(h,x,y)
+    });
+    sceneRef.current=sc; window.__arch=sc;
+    sc.setData(S.current.diagram); sc.view('iso');
+    const t=setTimeout(()=>{ const f=S.current.diagram.flows[0]; if(f){ sc.playFlow(f,true); setPlaying(f.id); } },700);
+    if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>{ clearTagCache(); sc.refreshLabels(); });
+    return ()=>{ clearTimeout(t); sc.destroy(); };
+  },[]);
+  useEffect(()=>{ const sc=sceneRef.current; if(sc) sc.setData(diagram,{labelMode}); saveLocal(diagram); },[diagram,labelMode]);
+  useEffect(()=>{ let seen=false; try{ seen=localStorage.getItem(LS+'.tour')==='done'; }catch(e){}
+    const t=seen?null:setTimeout(()=>setTour(true),1200);
+    const el=hostRef.current; const ro=new ResizeObserver(()=>{ if(el.clientHeight) setAspect(el.clientWidth/el.clientHeight); }); ro.observe(el);
+    return ()=>{ t&&clearTimeout(t); ro.disconnect(); }; },[]);
+  function closeTour(){ setTour(false); try{ localStorage.setItem(LS+'.tour','done'); }catch(e){} }
+  useEffect(()=>{ sceneRef.current&&sceneRef.current.setSelection(sel); },[sel]);
+  useEffect(()=>{ const sc=sceneRef.current; if(!sc) return; sc.mode=mode; sc.setMarked(mode==='connect'&&connectFrom?[connectFrom]:mode==='record'&&rec?rec.steps.map(s=>s.node):[]); },[mode,connectFrom,rec]);
+  useEffect(()=>{ if(sceneRef.current) sceneRef.current.speed=speed; },[speed]);
+  useEffect(()=>{ if(sceneRef.current) sceneRef.current.live=live; },[live]);
+  useEffect(()=>{ sceneRef.current&&sceneRef.current.setLoop(loop); },[loop]);
+
+  /* hover tooltip, written straight to the DOM so mouse moves don't re-render the app */
+  function showTip(h,x,y){
+    const el=tipRef.current; if(!el) return;
+    if(!h||S.current.mode!=='select'&&h.kind!=='node'){ el.hidden=true; return; }
+    const d=S.current.diagram, L=computeLoads(d); el.textContent='';
+    const add=(tag,cls,text,color)=>{ const n=document.createElement(tag); if(cls) n.className=cls; n.textContent=text; if(color) n.style.color=color; el.appendChild(n); };
+    if(h.kind==='edge'){ const e=d.edges.find(e=>e.id===h.id); if(!e){ el.hidden=true; return; } const k=kindOf(e);
+      const nm=id=>(d.nodes.find(n=>n.id===id)||{}).name||'?';
+      add('b','',nm(e.from)+' → '+nm(e.to)); add('span','t',CONNECTORS[k].label+(e.label?' · '+e.label:'')); add('p','',CONNECTORS[k].desc);
+      if(L.edge[e.id]) add('span','s',fmtRps(L.edge[e.id])+' req/s');
+    } else { const n=d.nodes.find(n=>n.id===h.id); if(!n){ el.hidden=true; return; } const m=meta(n.type), load=L.node[n.id]||0, u=utilOf(n,load), c=capOf(n);
+      add('b','',n.name); add('span','t',(m.provider?m.provider+' · ':'')+m.label); const ds=descOf(n); if(ds) add('p','',ds);
+      if(load||c) add('span','s',(load?fmtRps(load)+' req/s':'idle')+(c?' · capacity '+fmtRps(c)+(load?' ('+Math.round(u*100)+'%)':''):''),utilColor(u));
+      if(isGroupType(n.type)) add('span','s',d.nodes.filter(x=>x.group===n.id).length+' blocks inside');
+    }
+    const host=hostRef.current.getBoundingClientRect(); el.hidden=false;
+    const w=el.offsetWidth, hh=el.offsetHeight; let left=x-host.left+16, top=y-host.top+16;
+    if(left+w>host.width-8) left=x-host.left-w-16; if(top+hh>host.height-8) top=y-host.top-hh-16;
+    el.style.left=Math.max(8,left)+'px'; el.style.top=Math.max(8,top)+'px';
+  }
+
+  function handlePick(hit,mods){
+    const {mode,connectFrom,rec,sel}=S.current;
+    const isBlock=hit&&hit.kind==='node'&&!hit.zone&&!hit.group;
+    if(mode==='connect'){
+      if(!isBlock) return;
+      if(!connectFrom){ setConnectFrom(hit.id); return; }
+      if(hit.id===connectFrom) return;
+      addEdge(connectFrom,hit.id); setConnectFrom(hit.id); return;
+    }
+    if(mode==='record'){
+      if(!isBlock) return;
+      if(rec.steps.length && rec.steps[rec.steps.length-1].node===hit.id) return;
+      setRec(r=>({...r,steps:[...r.steps,{node:hit.id,note:'',ret:''}]})); return;
+    }
+    if(mods.shift&&isBlock){
+      const cur=sel&&sel.kind==='multi'?sel.ids.slice():sel&&sel.kind==='node'&&!isGroupType((S.current.diagram.nodes.find(n=>n.id===sel.id)||{}).type)&&!isZoneType((S.current.diagram.nodes.find(n=>n.id===sel.id)||{}).type)?[sel.id]:[];
+      const i=cur.indexOf(hit.id); if(i>=0) cur.splice(i,1); else cur.push(hit.id);
+      setSel(cur.length>1?{kind:'multi',ids:cur}:cur.length?{kind:'node',id:cur[0]}:null); return;
+    }
+    setSel(hit?{kind:hit.kind,id:hit.id}:null);
+  }
+  function addEdge(a,b){
+    const k=S.current.connectKind;
+    setDiagram(d=>{ if(d.edges.some(e=>e.from===a&&e.to===b)) return d; return {...d,edges:[...d.edges,{id:uid('e'),from:a,to:b,label:CONNECTORS[k].proto,kind:k}]}; });
+  }
+  function addNode(type){
+    const m=meta(type), sc=sceneRef.current; const p=sc?sc.freeSpot():{x:0,z:0};
+    const n={id:uid('n'),type,name:m.label,x:p.x,z:p.z}; if(m.shape==='zone'){ n.w=10; n.d=8; }
+    setDiagram(d=>({...d,nodes:m.shape==='zone'?[n,...d.nodes]:[...d.nodes,n]})); setSel({kind:'node',id:n.id}); setMode('select');
+  }
+  function update(kind,id,patch){
+    setDiagram(d=> cleanGroups(kind==='node'?{...d,nodes:d.nodes.map(n=>n.id===id?{...n,...patch}:n)}:{...d,edges:d.edges.map(e=>e.id===id?{...e,...patch}:e)}));
+  }
+  function removeNodes(ids){
+    const set=new Set(ids); stopFlow();
+    setDiagram(d=>cleanGroups({...d,nodes:d.nodes.filter(n=>!set.has(n.id)).map(n=>set.has(n.group)?{...n,group:undefined}:n),edges:d.edges.filter(e=>!set.has(e.from)&&!set.has(e.to)),
+      flows:d.flows.map(f=>({...f,steps:f.steps.filter(st=>!set.has(st.node))})).filter(f=>f.steps.length>1)}));
+  }
+  function remove(s){
+    if(!s) return;
+    if(s.kind==='multi') removeNodes(s.ids);
+    else if(s.kind==='node'){ const n=diagram.nodes.find(x=>x.id===s.id); if(n&&isGroupType(n.type)) ungroup(n.id); else removeNodes([s.id]); }
+    else setDiagram(d=>({...d,edges:d.edges.filter(e=>e.id!==s.id)}));
+    setSel(null);
+  }
+  function makeGroup(kind,name){
+    const s=S.current.sel; if(!s||s.kind!=='multi') return; const ids=new Set(s.ids), gid=uid('g');
+    setDiagram(d=>{ const mem=d.nodes.filter(n=>ids.has(n.id)), x=mem.reduce((a,n)=>a+n.x,0)/mem.length, z=mem.reduce((a,n)=>a+n.z,0)/mem.length;
+      return cleanGroups({...d,nodes:[...d.nodes.map(n=>ids.has(n.id)?{...n,group:gid}:n),{id:gid,type:kind,name,x,z}]}); });
+    setSel({kind:'node',id:gid}); say('Grouped '+ids.size+' blocks into '+name+'. Drag its floor to move them together.');
+  }
+  function ungroup(gid){ setDiagram(d=>({...d,nodes:d.nodes.filter(n=>n.id!==gid).map(n=>n.group===gid?{...n,group:undefined}:n)})); setSel(null); }
+  function startConnect(id){ setMode('connect'); setConnectFrom(id||null); }
+  function setModeSafe(m){ setMode(m); setConnectFrom(null); if(m!=='record') setRec(null); }
+  function setFlow(id,patch){ setDiagram(d=>({...d,flows:d.flows.map(x=>x.id===id?{...x,...patch}:x)})); }
+
+  function play(f){ const sc=sceneRef.current; if(!sc) return; sc.playFlow(f,loop); setPlaying(f.id); setHop(-1); }
+  function stopFlow(){ sceneRef.current&&sceneRef.current.stopFlow(); setPlaying(null); setHop(-1); }
+  function startRecord(){ stopFlow(); setSel(null); setRec({name:'New flow '+(S.current.diagram.flows.length+1),steps:[]}); setMode('record'); }
+  function saveRecord(){
+    if(!rec||rec.steps.length<2){ say('A flow needs at least two blocks.'); return; }
+    const f={id:uid('f'),name:rec.name||'Flow',color:FLOW_COLORS[diagram.flows.length%FLOW_COLORS.length],rps:100,steps:rec.steps};
+    setDiagram(d=>{ let edges=d.edges.slice(); for(let i=0;i<f.steps.length-1;i++){ const a=f.steps[i].node,b=f.steps[i+1].node;
+      if(!edges.some(e=>(e.from===a&&e.to===b)||(e.from===b&&e.to===a))) edges.push({id:uid('e'),from:a,to:b,label:'HTTPS',kind:'request'}); }
+      return {...d,edges,flows:[...d.flows,f]}; });
+    setRec(null); setMode('select'); setTimeout(()=>play(f),60); say('Flow saved at 100 req/s. Missing connections were added.');
+  }
+  function loadTemplate(k){ stopFlow(); setSel(null); setModeSafe('select'); const d=TEMPLATES[k](); setDiagram(d);
+    setTimeout(()=>{ const sc=sceneRef.current; if(!sc) return; sc.view('iso'); if(d.flows[0]) play(d.flows[0]); },60); }
+
+  // keyboard
+  useEffect(()=>{ const kd=e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='select'||tag==='textarea') return;
+      const s=S.current.sel;
+      if((e.key==='Delete'||e.key==='Backspace')&&s){ e.preventDefault(); remove(s); }
+      if(e.key==='Escape'){ setModeSafe('select'); setSel(null); }
+      if(e.metaKey||e.ctrlKey||e.altKey) return;
+      if(e.key==='c'||e.key==='C') setModeSafe('connect'); if(e.key==='v'||e.key==='V') setModeSafe('select');
+      if(e.key==='r'||e.key==='R') startRecord(); if((e.key==='f'||e.key==='F')&&sceneRef.current) sceneRef.current.view('iso');
+      if((e.key==='g'||e.key==='G')){ if(s&&s.kind==='multi'){ const n=S.current.diagram.nodes.filter(x=>x.type==='grp-server').length+1; makeGroup('grp-server','server-'+String(n).padStart(2,'0')); } else say('Shift-click two or more blocks first, then press G.'); }
+      if(e.key==='l'||e.key==='L') setLabelMode(m=>m==='basic'?'detail':'basic');
+      if(e.key==='?') setHelp(true); };
+    window.addEventListener('keydown',kd); return ()=>window.removeEventListener('keydown',kd); },[diagram]);
+
+  const blockCount=diagram.nodes.filter(n=>!isGroupType(n.type)).length;
+  const summary=`${blockCount} components · ${diagram.edges.length} connections`;
+  const frameAspect=()=>({'16:9':16/9,'4:3':4/3,'1:1':1}[frame]||null);
+  async function exportPNG(){
+    const sc=sceneRef.current; if(!sc||busy) return; setMenuOpen(false); const prev=sel; sc.setSelection(null); sc.setMarked([]);
+    setBusy({label:'Rendering PNG',p:.5}); await new Promise(r=>setTimeout(r,30));
+    let out; try{ out=await sc.snapshot(pngW,frameAspect(),fitExport,diagram.title,summary); }catch(err){ out=null; }
+    sc.setSelection(prev); setBusy(null);
+    if(!out||!out.blob){ say('The PNG couldn\'t be rendered at that size. Try a smaller resolution.'); return; }
+    try{ const st=await saveFile(slug(diagram.title)+'-'+out.w+'w.png',out.blob); if(st==='saved') say('PNG saved, '+out.w+' × '+out.h+' px.'); }catch(e){ say(saveError(e)); }
+  }
+  async function exportGIF(){
+    const sc=sceneRef.current; if(!sc||busy) return; setMenuOpen(false);
+    let tempLive=false;
+    if(!playing&&!live){ const f=diagram.flows[0]; if(f) play(f); else { tempLive=true; sc.live=true; } }
+    const prev=sel; sc.setSelection(null); sc.setMarked([]);
+    setBusy({label:'Recording',p:0});
+    const extraColors=[REQ_COLOR,RES_COLOR,EVT_COLOR,STR_COLOR,...diagram.flows.map(f=>f.color)];
+    const cap=await sc.startCapture({seconds:gifSecs,fps:gifFps,width:gifW,aspect:frameAspect(),fit:fitExport,title:diagram.title,sub:summary,extraColors,
+      onTick:p=>setBusy(b=>b&&b.label==='Recording'&&Math.abs(b.p-p)>.03?{label:'Recording',p}:b)});
+    if(tempLive) sc.live=false; sc.setSelection(prev);
+    setBusy({label:'Encoding',p:0});
+    let blob; try{ blob=await encodeGIF(cap,p=>setBusy({label:'Encoding',p})); }catch(err){ setBusy(null); say('GIF encoding failed. Try a shorter clip or a smaller size.'); return; }
+    setBusy(null);
+    try{ const st=await saveFile(slug(diagram.title)+'-'+cap.w+'w.gif',blob); if(st==='saved') say('GIF saved, '+cap.w+' × '+cap.h+' px, '+(blob.size/1048576).toFixed(1)+' MB.'); }catch(e){ say(saveError(e)); }
+  }
+  async function downloadZip(){
+    if(busy) return; setMenuOpen(false); setBusy({label:'Packing project',p:0});
+    const enc=new TextEncoder(), files=[];
+    for(let k=0;k<PROJECT_FILES.length;k++){ const f=PROJECT_FILES[k]; let data=null;
+      const cands=f==='index.html'?['project/index.html','index.source.html','./index.html']:['project/'+f,'./'+f];
+      for(const u of cands){ try{ const r=await fetch(u,{cache:'no-store'}); if(r.ok){ const b=new Uint8Array(await r.arrayBuffer()); if(b.length){ data=b; break; } } }catch(e){} }
+      if(!data&&f==='index.html') data=enc.encode(selfHTML());
+      if(data) files.push({name:'archflow3d/'+f,data});
+      setBusy({label:'Packing project',p:(k+1)/(PROJECT_FILES.length+1)}); }
+    files.push({name:'archflow3d/designs/'+slug(diagram.title)+'.json',data:enc.encode(JSON.stringify({app:'ArchFlow 3D',version:2,...diagram},null,2))});
+    const blob=makeZip(files); setBusy(null);
+    const docs=files.length>3?'':' Docs weren\'t reachable from this copy, so only the app and your design are included.';
+    try{ const st=await saveFile('archflow3d-project.zip',blob); if(st==='saved') say('Project zip saved ('+files.length+' files).'+docs); }catch(e){ say(saveError(e)); }
+  }
+  async function exportJSON(){
+    setMenuOpen(false);
+    const blob=new Blob([JSON.stringify({app:'ArchFlow 3D',version:2,...diagram},null,2)],{type:'application/json'});
+    try{ const st=await saveFile(slug(diagram.title)+'.json',blob); if(st==='saved') say('Design saved as JSON.'); }catch(e){ say(saveError(e)); }
+  }
+  function importJSON(e){
+    const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader();
+    r.onload=()=>{ try{ const d=JSON.parse(r.result); if(!Array.isArray(d.nodes)||!Array.isArray(d.edges)) throw 0;
+        stopFlow(); setSel(null); setDiagram(cleanGroups({title:d.title||'Imported architecture',nodes:d.nodes.filter(n=>BY_TYPE[n.type]),edges:d.edges,flows:Array.isArray(d.flows)?d.flows:[]}));
+        setTimeout(()=>sceneRef.current&&sceneRef.current.view('iso'),60); say('Design loaded.'); }
+      catch(err){ say('That file isn\'t an ArchFlow design. Choose a .json saved from this app.'); } };
+    r.readAsText(f); e.target.value='';
+  }
+
+  const nameOf=id=>(diagram.nodes.find(n=>n.id===id)||{}).name||'(removed)';
+  const playingFlow=diagram.flows.find(f=>f.id===playing);
+  const hops=playingFlow?hopsOf(playingFlow,diagram.edges):[];
+  const protoOf=h=>{ const e=diagram.edges.find(e=>e.id===h.edge); return (e&&e.label?e.label:'direct')+(h.kind&&h.kind!=='request'?' · '+CONNECTORS[h.kind].short:''); };
+  const totalRps=diagram.flows.reduce((s,f)=>s+(+f.rps||0),0);
+  const utilList=diagram.nodes.filter(n=>!isGroupType(n.type)&&capOf(n)).map(n=>({n,u:utilOf(n,loads.node[n.id]||0)}));
+  const over=utilList.filter(x=>x.u>=1), hot=utilList.filter(x=>x.u>=.9&&x.u<1);
+  const busiest=diagram.nodes.filter(n=>!isGroupType(n.type)).reduce((b,n)=>(loads.node[n.id]||0)>(b?loads.node[b.id]||0:0)?n:b,null);
+
+  let hint=null;
+  if(mode==='connect') hint=connectFrom?html`<span>From <em>${nameOf(connectFrom)}</em>: click the target block. New links are <em>${CONNECTORS[connectKind].label.toLowerCase()}</em>. Esc when done.</span>`:html`<span>Click the <em>source</em> block, then the target.</span>`;
+  if(mode==='record') hint=html`<span>Recording flow: click blocks in the order a request travels. ${rec&&rec.steps.length?html`<em>${rec.steps.length} steps</em>`:''}</span>`;
+
+  return html`<div className="app">
+    <header className="top">
+      <div className="brand"><b>Arch<span>Flow</span> 3D</b></div>
+      <input className="title-in" id="diagram-title" type="text" aria-label="Diagram title" value=${diagram.title} onInput=${e=>setDiagram(d=>({...d,title:e.target.value}))} />
+      <div className="spacer"></div>
+      <div className="grp" data-tour="templates">
+        <select className="btn" id="template" aria-label="Load template" value="" onChange=${e=>{ if(e.target.value) loadTemplate(e.target.value); }}>
+          <option value="">Load template…</option>
+          <option value="ecommerce">Checkout microservices</option>
+          <option value="monolith">Single-server deployment</option>
+          <option value="serverless">Serverless on AWS</option>
+          <option value="azure">IoT telemetry on Azure</option>
+          <option value="blank">Blank canvas</option>
+        </select>
+        <button className="btn ghost" onClick=${()=>fileRef.current&&fileRef.current.click()}>Open JSON</button>
+        <input ref=${fileRef} className="file-in" id="file-in" type="file" accept=".json,application/json" onChange=${importJSON} />
+      </div>
+      <div className="grp" data-tour="help">
+        <button className="btn ghost" onClick=${()=>setTour(true)}>Tour</button>
+        <button className="btn ghost" onClick=${()=>setHelp(true)}>Help</button>
+      </div>
+      <${ExportMenu} open=${menuOpen} setOpen=${setMenuOpen} busy=${busy} aspect=${aspect} frame=${frame} setFrame=${setFrame} fit=${fitExport} setFit=${setFitExport}
+        pngW=${pngW} setPngW=${setPngW} gifW=${gifW} setGifW=${setGifW} gifSecs=${gifSecs} setGifSecs=${setGifSecs} gifFps=${gifFps} setGifFps=${setGifFps}
+        onPNG=${exportPNG} onGIF=${exportGIF} onJSON=${exportJSON} onZip=${downloadZip} />
+    </header>
+
+    <div className="main">
+      <aside className="pane left" data-tour="palette"><${Palette} onAdd=${addNode} /></aside>
+
+      <section className="stage" data-tour="stage">
+        <div className="canvas-host" ref=${hostRef}></div>
+        <div className="toolbar" data-tour="tools">
+          <div className="seg" role="group" aria-label="Tool">
+            <button className=${mode==='select'?'on':''} onClick=${()=>setModeSafe('select')} title="Select and move (V). Shift-click to multi-select.">Select</button>
+            <button className=${mode==='connect'?'on':''} onClick=${()=>setModeSafe('connect')} title="Connect blocks (C)">Connect</button>
+            <button className=${mode==='record'?'on':''} onClick=${startRecord} title="Record a request flow (R)">Record flow</button>
+          </div>
+          ${mode==='connect'&&html`<div className="seg"><select id="connect-kind" aria-label="Connector type for new links" value=${connectKind} onChange=${e=>setConnectKind(e.target.value)}>
+            ${CONNECTOR_KEYS.map(k=>html`<option key=${k} value=${k}>${CONNECTORS[k].label}</option>`)}</select></div>`}
+          ${sel&&sel.kind==='multi'&&mode==='select'&&html`<div className="seg"><button className="on" onClick=${()=>{ const n=diagram.nodes.filter(x=>x.type==='grp-server').length+1; makeGroup('grp-server','server-'+String(n).padStart(2,'0')); }} title="Group selected blocks (G)">Group ${sel.ids.length} into server</button></div>`}
+          <div className="seg" role="group" aria-label="Camera">
+            <button onClick=${()=>sceneRef.current&&sceneRef.current.view('iso')}>Fit</button>
+            <button onClick=${()=>sceneRef.current&&sceneRef.current.view('top')}>Top</button>
+            <button onClick=${()=>sceneRef.current&&sceneRef.current.view('front')}>Front</button>
+          </div>
+          <div className="seg" role="group" aria-label="Labels">
+            <button className=${labelMode==='basic'?'on':''} onClick=${()=>setLabelMode('basic')} title="Names and load only">Names</button>
+            <button className=${labelMode==='detail'?'on':''} onClick=${()=>setLabelMode('detail')} title="Show descriptions on labels (L)">Details</button>
+          </div>
+        </div>
+        <div className="legend" aria-label="Packet colours">
+          <span><i style=${{background:'var(--req)'}}></i>request</span><span><i style=${{background:'var(--res)'}}></i>response</span>
+          <span><i style=${{background:'var(--evt)'}}></i>event</span><span><i style=${{background:'var(--str)'}}></i>stream</span>
+        </div>
+        <div className="tip" ref=${tipRef} hidden></div>
+        ${!diagram.nodes.length&&html`<div className="empty"><div><b>Empty canvas</b>Add a block from the palette, or load a template.</div></div>`}
+        ${hint&&html`<div className="hint">${hint}</div>`}
+        ${busy&&busy.label==='Recording'&&frame!=='stage'&&html`<div className="hint">Recording at ${frame}. The preview may look stretched until it finishes.</div>`}
+        ${busy&&html`<div className="rec">${busy.label==='Recording'&&html`<span className="dot"></span>`}${busy.label} <div className="bar"><div style=${{width:Math.round(busy.p*100)+'%'}}></div></div>${Math.round(busy.p*100)}%</div>`}
+      </section>
+
+      <aside className="pane right">
+        <div data-tour="inspector">
+        ${mode==='record'&&rec?html`<div className="sec"><h3>Recording flow</h3>
+            <div className="field"><label htmlFor="rec-name">Flow name</label><input id="rec-name" type="text" value=${rec.name} onInput=${e=>setRec(r=>({...r,name:e.target.value}))} /></div>
+            ${!rec.steps.length&&html`<p className="muted">Click the client block where the request starts, then each block it passes through. Replies travel back automatically, except over one-way and streaming links.</p>`}
+            <div className="recsteps">${rec.steps.map((s,i)=>html`<div className="recstep" key=${i}>
+              <span className="no">${i+1}</span>
+              <div><div className="nn">${nameOf(s.node)}</div>
+                ${i>0&&html`<input id=${'rec-note-'+i} type="text" placeholder="Request, e.g. POST /orders" value=${s.note} onInput=${e=>{ const v=e.target.value; setRec(r=>({...r,steps:r.steps.map((x,j)=>j===i?{...x,note:v}:x)})); }} />`}
+              </div></div>`)}</div>
+            <div className="grp"><button className="btn sm primary" onClick=${saveRecord}>Save flow</button>
+              <button className="btn sm" disabled=${!rec.steps.length} onClick=${()=>setRec(r=>({...r,steps:r.steps.slice(0,-1)}))}>Undo step</button>
+              <button className="btn sm ghost" onClick=${()=>setModeSafe('select')}>Cancel</button></div></div>`
+          : html`<${Inspector} diagram=${diagram} sel=${sel} loads=${loads} update=${update} remove=${remove} startConnect=${startConnect} makeGroup=${makeGroup} ungroup=${ungroup} setSel=${setSel} />`}
+        </div>
+
+        <div className="sec" data-tour="flows"><h3>Flows and traffic <button className="btn sm" onClick=${startRecord}>+ Record</button></h3>
+          ${diagram.flows.length?html`<div className="traffic">
+            <div><b>${fmtRps(totalRps)}</b><span>req/s in total</span></div>
+            <div><b style=${{color:over.length?'var(--danger)':hot.length?'#ffcc4d':'#4fd1a5'}}>${over.length?over.length+' over':hot.length?hot.length+' near':'All OK'}</b><span>${over.length||hot.length?'capacity':'capacity'}</span></div>
+            <div><b>${busiest&&loads.node[busiest.id]?fmtRps(loads.node[busiest.id]):'–'}</b><span title=${busiest?busiest.name:''}>busiest: ${busiest&&loads.node[busiest.id]?busiest.name:'none'}</span></div>
+          </div>`:null}
+          ${!diagram.flows.length&&html`<p className="muted">No flows yet. Record one to simulate how a request moves through your system.</p>`}
+          ${diagram.flows.map(f=>html`<div key=${f.id} className=${'flow'+(playing===f.id?' playing':'')} style=${{'--fc':f.color}}>
+            <div className="hd"><span className="sw" title="Path highlight colour"></span>
+              <input id=${'flow-name-'+f.id} type="text" aria-label="Flow name" value=${f.name} onInput=${e=>setFlow(f.id,{name:e.target.value})} />
+              ${playing===f.id?html`<button className="btn sm on" onClick=${stopFlow}>Stop</button>`:html`<button className="btn sm" onClick=${()=>play(f)}>Play</button>`}
+              <button className="btn sm ghost danger" aria-label="Delete flow" onClick=${()=>{ if(playing===f.id) stopFlow(); setDiagram(d=>({...d,flows:d.flows.filter(x=>x.id!==f.id)})); }}>✕</button>
+            </div>
+            <div className="rps"><label htmlFor=${'flow-rps-'+f.id}>Rate</label>
+              <input id=${'flow-rps-'+f.id} type="number" min="0" step="any" value=${f.rps==null?'':f.rps} placeholder="0" onInput=${e=>setFlow(f.id,{rps:e.target.value===''?undefined:Math.max(0,+e.target.value)})} />
+              <span>req/s</span></div>
+            <div className="path">${f.steps.map(s=>nameOf(s.node)).join(' → ')}</div>
+          </div>`)}
+          <div className="ctl">
+            <label htmlFor="speed">Speed <input id="speed" type="range" min="0.25" max="3" step="0.25" value=${speed} onInput=${e=>setSpeed(+e.target.value)} /> <span className="chip">${speed}×</span></label>
+          </div>
+          <div className="ctl">
+            <label><input id="loop" type="checkbox" checked=${loop} onChange=${e=>setLoop(e.target.checked)} /> Loop flow</label>
+            <label title="Every flow sends requests continuously, more often for higher rates"><input id="live" type="checkbox" checked=${live} onChange=${e=>setLive(e.target.checked)} /> Live traffic (all flows at their rates)</label>
+          </div>
+        </div>
+
+        <div className="sec" data-tour="log"><h3>Hop log ${playingFlow&&html`<span className="chip">${playingFlow.name}${playingFlow.rps?' · '+fmtRps(playingFlow.rps)+'/s':''}</span>`}</h3>
+          ${!playingFlow?html`<p className="muted">Play a flow to trace each hop with its connector, protocol and payload.</p>`:
+          html`<div className="log">${hops.map((h,i)=>html`<div key=${i} className=${'hop '+h.dir+(i===hop?' on':'')+(hop>i?' done':'')} title=${HOP_WORD[h.dir]}>
+            <span className="no">${i+1}</span><span className="ar">${HOP_ARROW[h.dir]}</span>
+            <span className="tx">${nameOf(h.from)} to ${nameOf(h.to)}<small>${protoOf(h)}${h.note?' · '+h.note:''}</small></span>
+          </div>`)}</div>`}
+        </div>
+      </aside>
+    </div>
+    ${toast&&html`<div className="toast" role="status">${toast}</div>`}
+    ${tour&&html`<${Tour} onClose=${closeTour} />`}
+    ${help&&html`<${HelpModal} onClose=${()=>setHelp(false)} onTour=${()=>setTour(true)} />`}
+  </div>`;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(html`<${App} />`);
+})();
+</script>
+
+</body>
+</html>

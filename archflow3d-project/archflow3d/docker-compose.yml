@@ -1,0 +1,8 @@
+services:
+  archflow3d:
+    build: .
+    image: archflow3d:latest
+    container_name: archflow3d
+    ports:
+      - "8080:80"
+    restart: unless-stopped
